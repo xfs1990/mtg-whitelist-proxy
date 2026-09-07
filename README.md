@@ -102,6 +102,14 @@ curl -4 -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main
   | sudo FORCE_IPV4=1 bash
 ```
 
+If Docker's official package repository is unreachable from the VPS, use the
+distribution Docker packages instead:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install.sh \
+  | sudo DOCKER_INSTALL_SOURCE=distro bash
+```
+
 To choose a domain or ports:
 
 ```bash

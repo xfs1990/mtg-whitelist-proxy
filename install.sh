@@ -11,6 +11,7 @@ ip_mode="${IP_MODE:-auto}"
 whitelist_mode="${WHITELIST_MODE:-SUBNET}"
 auto_install_docker="${AUTO_INSTALL_DOCKER:-1}"
 force_ipv4="${FORCE_IPV4:-0}"
+docker_install_source="${DOCKER_INSTALL_SOURCE:-auto}"
 
 apt_cmd() {
   if [ "$force_ipv4" = "1" ]; then
@@ -34,22 +35,37 @@ compose_cmd() {
   return 127
 }
 
-install_docker_engine() {
-  if [ "$auto_install_docker" != "1" ]; then
-    echo "Docker is required. Install Docker Engine first, or rerun with AUTO_INSTALL_DOCKER=1." >&2
-    exit 1
+start_docker_service() {
+  systemctl enable --now docker >/dev/null 2>&1 || systemctl start docker
+}
+
+disable_official_docker_apt_source() {
+  for source_file in \
+    /etc/apt/sources.list.d/docker.sources \
+    /etc/apt/sources.list.d/docker.list; do
+    if [ -f "$source_file" ] && grep -q 'download.docker.com' "$source_file"; then
+      mv "$source_file" "${source_file}.disabled-by-mtg-whitelist-proxy"
+      echo "Disabled unreachable Docker apt source: $source_file"
+    fi
+  done
+}
+
+install_docker_from_distro() {
+  echo "Installing Docker from the distribution apt repository..."
+  export DEBIAN_FRONTEND=noninteractive
+  disable_official_docker_apt_source
+  apt_cmd update
+
+  if apt_cmd install -y docker.io docker-compose-plugin; then
+    start_docker_service
+    return
   fi
 
-  if [ "$(id -u)" -ne 0 ]; then
-    echo "Docker is not installed. Run this installer as root so it can install Docker Engine." >&2
-    exit 1
-  fi
+  apt_cmd install -y docker.io docker-compose
+  start_docker_service
+}
 
-  if [ ! -r /etc/os-release ]; then
-    echo "Docker is not installed and /etc/os-release is unavailable." >&2
-    exit 1
-  fi
-
+install_docker_from_official() {
   # shellcheck disable=SC1091
   . /etc/os-release
 
@@ -73,7 +89,7 @@ install_docker_engine() {
     exit 1
   fi
 
-  echo "Docker is not installed. Installing Docker Engine from Docker's official apt repository..."
+  echo "Installing Docker Engine from Docker's official apt repository..."
   export DEBIAN_FRONTEND=noninteractive
 
   apt_cmd update
@@ -97,7 +113,43 @@ EOF
 
   apt_cmd update
   apt_cmd install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  systemctl enable --now docker >/dev/null 2>&1 || systemctl start docker
+  start_docker_service
+}
+
+install_docker_engine() {
+  if [ "$auto_install_docker" != "1" ]; then
+    echo "Docker is required. Install Docker Engine first, or rerun with AUTO_INSTALL_DOCKER=1." >&2
+    exit 1
+  fi
+
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "Docker is not installed. Run this installer as root so it can install Docker Engine." >&2
+    exit 1
+  fi
+
+  if [ ! -r /etc/os-release ]; then
+    echo "Docker is not installed and /etc/os-release is unavailable." >&2
+    exit 1
+  fi
+
+  case "$docker_install_source" in
+    official)
+      install_docker_from_official
+      ;;
+    distro)
+      install_docker_from_distro
+      ;;
+    auto)
+      if ! install_docker_from_official; then
+        echo "Official Docker installation failed. Falling back to distribution packages..." >&2
+        install_docker_from_distro
+      fi
+      ;;
+    *)
+      echo "DOCKER_INSTALL_SOURCE must be auto, official, or distro." >&2
+      exit 1
+      ;;
+  esac
 }
 
 case "$install_dir" in
