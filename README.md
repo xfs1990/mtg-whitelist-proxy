@@ -16,9 +16,11 @@ It only manages its own nftables table, `inet mtproxy_guard`. It never flushes t
 ## Requirements
 
 - Linux host with nftables
-- Docker
 - host network mode
 - `NET_ADMIN` capability
+
+The one-command installer can install Docker Engine automatically on Debian and
+Ubuntu. Other distributions need Docker installed first.
 
 The container modifies the host network namespace, so review the ports before running it on a shared machine.
 
@@ -81,15 +83,24 @@ For mobile networks, `SUBNET` is usually more practical because IPv6 privacy add
 
 ### One-command VPS install
 
-On a Linux VPS with Docker Engine and Docker Compose v2:
+On a Debian or Ubuntu VPS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install.sh | sudo bash
 ```
 
-The installer pulls the published image, generates both `SECRET` and a random
-`ADD_TOKEN`, writes the deployment to `/opt/mtg-whitelist-proxy`, and starts the
-container. Existing configuration is preserved when the installer is run again.
+The installer installs Docker Engine when it is missing, pulls the published
+image, generates both `SECRET` and a random `ADD_TOKEN`, writes the deployment to
+`/opt/mtg-whitelist-proxy`, and starts the container. Existing configuration is
+preserved when the installer is run again.
+
+If the VPS has broken IPv6 routing to package mirrors, force IPv4 for the Docker
+installation:
+
+```bash
+curl -4 -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install.sh \
+  | sudo FORCE_IPV4=1 bash
+```
 
 To choose a domain or ports:
 
