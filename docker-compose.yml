@@ -1,0 +1,12 @@
+services:
+  mtproxy:
+    image: ${IMAGE:-ghcr.io/xfs1990/mtg-whitelist-proxy:latest}
+    container_name: mtg-whitelist-proxy
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
