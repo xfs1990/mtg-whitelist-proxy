@@ -124,6 +124,20 @@ Alpine 极简系统如果没有 `curl` / `bash`，用：
 wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | sh
 ```
 
+### tiny 特殊网络
+
+如果脚本能下载，但 MTG 二进制下载失败，可以换一个你能访问的下载地址：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_URL='https://example.com/mtg-linux.tar.gz' bash
+```
+
+也可以先把 MTG 压缩包传到机器上，再离线安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_FILE='/root/mtg-linux.tar.gz' bash
+```
+
 ### NAT 小鸡
 
 如果服务商只给一段公网端口，就从里面挑两个端口：
@@ -193,6 +207,8 @@ tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
 | `PUBLIC_IPV4` | 自动识别 | 手动指定公网 IPv4 |
 | `PUBLIC_IPV6` | 自动识别 | 手动指定公网 IPv6 |
 | `PUBLIC_HOST` | 空 | 强制 Telegram 链接使用指定域名或 IP |
+| `MTG_URL` | 官方 GitHub Release | tiny 版自定义 MTG 下载地址 |
+| `MTG_FILE` | 空 | tiny 版使用本地 MTG 压缩包 |
 
 ## IP_MODE
 

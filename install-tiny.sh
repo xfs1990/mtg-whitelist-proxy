@@ -4,6 +4,8 @@ set -euo pipefail
 repo_raw="${REPO_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main}"
 install_dir="${INSTALL_DIR:-/opt/mtg-whitelist-proxy-tiny}"
 mtg_version="${MTG_VERSION:-2.2.8}"
+mtg_url="${MTG_URL:-}"
+mtg_file="${MTG_FILE:-}"
 domain="${DOMAIN:-cloudflare.com}"
 port="${PORT:-18188}"
 add_port="${ADD_PORT:-8080}"
@@ -307,12 +309,26 @@ mkdir -p "${install_dir}/bin" "${install_dir}/app" "${install_dir}/scripts" "${i
 
 arch="$(detect_arch)"
 mtg_archive="mtg-${mtg_version}-linux-${arch}.tar.gz"
-mtg_url="https://github.com/9seconds/mtg/releases/download/v${mtg_version}/${mtg_archive}"
+if [ -z "$mtg_url" ]; then
+  mtg_url="https://github.com/9seconds/mtg/releases/download/v${mtg_version}/${mtg_archive}"
+fi
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"
+if [ -n "$mtg_file" ]; then
+  if [ ! -f "$mtg_file" ]; then
+    echo "MTG_FILE 指定的文件不存在：${mtg_file}" >&2
+    exit 1
+  fi
+  cp "$mtg_file" "${tmp_dir}/${mtg_archive}"
+else
+  if ! curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"; then
+    echo "下载 MTG 失败：${mtg_url}" >&2
+    echo "如果这台机器不能访问 github.com，可以设置 MTG_URL 指向可访问的镜像地址，或先上传压缩包后设置 MTG_FILE=/path/to/${mtg_archive}。" >&2
+    exit 1
+  fi
+fi
 tar -xzf "${tmp_dir}/${mtg_archive}" -C "$tmp_dir"
 mtg_path="$(find "$tmp_dir" -type f -name mtg -print -quit)"
 if [ -z "$mtg_path" ]; then
