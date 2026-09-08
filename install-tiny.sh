@@ -60,7 +60,7 @@ random_hex() {
 
 require_root() {
   if [ "$(id -u)" -ne 0 ]; then
-    echo "Run this installer as root." >&2
+    echo "请使用 root 运行安装脚本。" >&2
     exit 1
   fi
 }
@@ -73,7 +73,7 @@ detect_arch() {
     armv7l) printf 'armv7\n' ;;
     armv6l) printf 'armv6\n' ;;
     *)
-      echo "Unsupported architecture: $(uname -m)" >&2
+      echo "不支持当前 CPU 架构：$(uname -m)" >&2
       exit 1
       ;;
   esac
@@ -99,7 +99,7 @@ validate_port() {
   local name="$1"
   local value="$2"
   if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
-    echo "$name must be an integer between 1 and 65535." >&2
+    echo "$name 必须是 1 到 65535 之间的端口号。" >&2
     exit 2
   fi
 }
@@ -238,7 +238,7 @@ detect_init_system() {
     return
   fi
 
-  echo "No supported service manager found. Need systemd or OpenRC." >&2
+  echo "未找到支持的服务管理器，需要 systemd 或 OpenRC。" >&2
   exit 1
 }
 
@@ -258,11 +258,11 @@ start_services() {
       rc-service mtg-whitelist-server start || true
       rc-service mtg-whitelist-proxy start || true
       if ! rc-service mtg-whitelist-server status >/dev/null 2>&1; then
-        echo "mtg-whitelist-server did not start." >&2
+        echo "白名单 HTTP 服务未能启动。" >&2
         exit 1
       fi
       if ! rc-service mtg-whitelist-proxy status >/dev/null 2>&1; then
-        echo "mtg-whitelist-proxy did not start." >&2
+        echo "MTG 代理服务未能启动。" >&2
         exit 1
       fi
       ;;
@@ -271,18 +271,18 @@ start_services() {
 
 print_urls() {
   echo
-  echo "MTG tiny install complete."
+  echo "MTG tiny 版安装完成。"
   if [ -n "$public_ipv4" ]; then
     echo "IPv4-URL: http://${public_ipv4}:${add_port}/add/${add_token}"
   fi
   if [ -n "$public_ipv6" ]; then
     echo "IPv6-URL: http://[${public_ipv6}]:${add_port}/add/${add_token}"
   fi
-  echo "Config: ${install_dir}/mtg-whitelist.env"
+  echo "配置文件：${install_dir}/mtg-whitelist.env"
   if [ "$init_system" = "openrc" ]; then
-    echo "Logs: tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log"
+    echo "日志：tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log"
   else
-    echo "Logs: journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f"
+    echo "日志：journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f"
   fi
   echo
 }
@@ -292,12 +292,12 @@ validate_port PORT "$port"
 validate_port ADD_PORT "$add_port"
 
 if [ "$port" = "$add_port" ]; then
-  echo "PORT and ADD_PORT must be different." >&2
+  echo "PORT 和 ADD_PORT 不能相同。" >&2
   exit 2
 fi
 
 if [[ "$add_token" == */* ]]; then
-  echo "ADD_TOKEN must not contain '/'." >&2
+  echo "ADD_TOKEN 不能包含 /。" >&2
   exit 2
 fi
 
@@ -316,7 +316,7 @@ curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"
 tar -xzf "${tmp_dir}/${mtg_archive}" -C "$tmp_dir"
 mtg_path="$(find "$tmp_dir" -type f -name mtg | head -n 1)"
 if [ -z "$mtg_path" ]; then
-  echo "Could not find mtg binary in ${mtg_archive}." >&2
+  echo "在 ${mtg_archive} 中没有找到 mtg 二进制文件。" >&2
   exit 1
 fi
 install -m 0755 "$mtg_path" "${install_dir}/bin/mtg"

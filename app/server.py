@@ -148,11 +148,11 @@ def render_add_page(ip, network, host, proxy_query):
     add_links_html = "\n\n      ".join(add_links)
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MTG Proxy Ready</title>
+  <title>MTG 代理已就绪</title>
   <style>
     :root {{
       color-scheme: light dark;
@@ -273,43 +273,43 @@ def render_add_page(ip, network, host, proxy_query):
 <body>
   <main>
     <section class="panel">
-      <h1>MTG Proxy Ready</h1>
-      <p class="status">Whitelist updated.</p>
+      <h1>MTG 代理已就绪</h1>
+      <p class="status">白名单已更新，可以导入 Telegram。</p>
 
       <div class="grid">
         <div class="metric">
-          <span class="label">Detected IP</span>
+          <span class="label">识别到的 IP</span>
           <span class="value">{values["ip"]}</span>
         </div>
         <div class="metric">
-          <span class="label">Allowed</span>
+          <span class="label">已放行范围</span>
           <span class="value">{values["network"]}</span>
         </div>
         <div class="metric">
-          <span class="label">Proxy</span>
+          <span class="label">代理地址</span>
           <span class="value">{values["proxy_url"]}</span>
         </div>
       </div>
 
       <div class="actions">
-        <a class="button" href="{values["tg_url"]}">Open In Telegram</a>
-        <a class="button secondary" href="{values["web_url"]}">Open t.me Link</a>
+        <a class="button" href="{values["tg_url"]}">打开 Telegram</a>
+        <a class="button secondary" href="{values["web_url"]}">打开 t.me 链接</a>
       </div>
 
       <div class="linkbox">
-        <span class="label">Telegram URL</span>
+        <span class="label">Telegram 导入链接</span>
         <a href="{values["tg_url"]}">{values["tg_text"]}</a>
       </div>
 
       <div class="linkbox">
-        <span class="label">Web URL</span>
+        <span class="label">网页导入链接</span>
         <a href="{values["web_url"]}">{values["web_text"]}</a>
       </div>
 
       {add_links_html}
 
       <div class="linkbox">
-        <span class="label">Current Add URL</span>
+        <span class="label">当前白名单链接</span>
         <a href="{values["add_url"]}">{values["add_text"]}</a>
       </div>
     </section>
@@ -394,11 +394,11 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if len(parts) != 2 or parts[0] != "add":
-            self.send_text(404, "Not found. Use /add/<token>\n")
+            self.send_text(404, "未找到。请使用 /add/<token>\n")
             return
 
         if not ADD_TOKEN or not hmac.compare_digest(parts[1], ADD_TOKEN):
-            self.send_text(403, "Forbidden\n")
+            self.send_text(403, "访问令牌错误。\n")
             return
 
         try:
@@ -406,7 +406,7 @@ class Handler(BaseHTTPRequestHandler):
             network = allowed_network(ip)
             persist_and_apply(ip, network)
         except Exception as exc:
-            self.send_text(500, f"Failed to update whitelist: {exc}\n")
+            self.send_text(500, f"白名单更新失败：{exc}\n")
             return
 
         host = proxy_host(self.headers.get("Host", ""))
@@ -425,7 +425,7 @@ def main():
     if not DATA_FILE.exists():
         save_data({"entries": []})
     server = DualStackServer(("::", ADD_PORT), Handler)
-    print(f"Whitelist server listening on [::]:{ADD_PORT}", flush=True)
+    print(f"白名单服务监听地址：[::]:{ADD_PORT}", flush=True)
     server.serve_forever()
 
 

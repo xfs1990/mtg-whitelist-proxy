@@ -93,6 +93,9 @@ IPv6-URL: http://[IPv6]:ADD_PORT/add/password
 Open one URL from your phone. The page updates the whitelist and shows clickable
 Telegram links.
 
+页面会以中文显示当前 IP、放行范围、代理地址，并提供可点击的
+`打开 Telegram` 和 `打开 t.me 链接` 按钮。
+
 ### Optional Installer
 
 On a Debian or Ubuntu VPS:
@@ -146,6 +149,9 @@ On minimal Alpine systems without `curl` or `bash`, use the bootstrap:
 ```sh
 wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | sh
 ```
+
+tiny 安装完成后会输出中文提示和 `IPv4-URL` / `IPv6-URL`。手机打开对应
+URL 后即可看到中文自适应页面。
 
 For NAT VPS panels, keep fixed ports and forward both of them:
 

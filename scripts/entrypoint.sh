@@ -120,7 +120,7 @@ if [ -z "$SECRET" ]; then
 fi
 if [ -z "$SECRET" ]; then
   SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
-  echo "Generated MTG secret for domain: $DOMAIN"
+  echo "已为伪装域名生成 MTG 密钥：$DOMAIN"
 fi
 save_value secret "$SECRET"
 export SECRET
@@ -129,7 +129,7 @@ if [ "$WHITELIST_MODE" != "OFF" ] && [ -z "$ADD_TOKEN" ]; then
   ADD_TOKEN="$(saved_value add_token)"
   if [ -z "$ADD_TOKEN" ]; then
     ADD_TOKEN="$(random_hex 12)"
-    echo "Generated whitelist token."
+    echo "已生成白名单访问令牌。"
   fi
 fi
 if [ -n "$ADD_TOKEN" ]; then
@@ -156,7 +156,7 @@ if [ ! -s "${DATA_DIR}/whitelist.json" ]; then
 fi
 
 selected_ip_mode="$(IP_MODE="$IP_MODE" /usr/local/bin/detect-network.sh)"
-echo "Selected MTG IP mode: $selected_ip_mode"
+echo "MTG 出站 IP 模式：$selected_ip_mode"
 
 /usr/local/bin/firewall.sh reset
 
@@ -174,14 +174,14 @@ print_add_urls() {
   detect_public_addresses
 
   echo
-  echo "Whitelist add URLs:"
+  echo "白名单访问地址："
   if [ -n "$PUBLIC_IPV4" ]; then
     echo "IPv4-URL: http://${PUBLIC_IPV4}:${ADD_PORT}/add/${ADD_TOKEN}"
   fi
   if [ -n "$PUBLIC_IPV6" ]; then
     echo "IPv6-URL: http://[${PUBLIC_IPV6}]:${ADD_PORT}/add/${ADD_TOKEN}"
   fi
-  echo "Open one add URL from your phone, then tap the Telegram link on the page."
+  echo "用手机打开其中一个地址，页面会自动放行当前 IP，并显示可点击的 Telegram 导入链接。"
   echo
 }
 
@@ -231,7 +231,7 @@ status="$?"
 set -e
 
 if ! kill -0 "$server_pid" >/dev/null 2>&1; then
-  echo "Whitelist HTTP service exited unexpectedly." >&2
+  echo "白名单 HTTP 服务异常退出。" >&2
   [ "$status" -ne 0 ] || status=1
 fi
 

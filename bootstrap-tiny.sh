@@ -4,7 +4,7 @@ set -eu
 repo_raw="${REPO_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main}"
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this bootstrap as root." >&2
+  echo "请使用 root 运行 bootstrap。" >&2
   exit 1
 fi
 
@@ -16,7 +16,7 @@ elif command -v apt-get >/dev/null 2>&1; then
   apt-get update
   apt-get install -y bash curl ca-certificates
 else
-  echo "Unsupported package manager. Install bash and curl first." >&2
+  echo "不支持当前包管理器，请先安装 bash 和 curl。" >&2
   exit 1
 fi
 
@@ -28,7 +28,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   wget -qO "$tmp_file" "${repo_raw}/install-tiny.sh"
 else
-  echo "curl or wget is required to fetch install-tiny.sh." >&2
+  echo "需要 curl 或 wget 来下载安装脚本。" >&2
   exit 1
 fi
 
