@@ -88,10 +88,10 @@ detect_public_addresses() {
   fi
 
   if [ -z "$public_ipv4" ]; then
-    public_ipv4="$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    public_ipv4="$(ip -o -4 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
   if [ -z "$public_ipv6" ]; then
-    public_ipv6="$(ip -o -6 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    public_ipv6="$(ip -o -6 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
 }
 
@@ -314,7 +314,7 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"
 tar -xzf "${tmp_dir}/${mtg_archive}" -C "$tmp_dir"
-mtg_path="$(find "$tmp_dir" -type f -name mtg | head -n 1)"
+mtg_path="$(find "$tmp_dir" -type f -name mtg -print -quit)"
 if [ -z "$mtg_path" ]; then
   echo "在 ${mtg_archive} 中没有找到 mtg 二进制文件。" >&2
   exit 1

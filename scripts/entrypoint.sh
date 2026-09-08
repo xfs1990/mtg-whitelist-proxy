@@ -162,10 +162,10 @@ echo "MTG 出站 IP 模式：$selected_ip_mode"
 
 detect_public_addresses() {
   if [ -z "$PUBLIC_IPV4" ]; then
-    PUBLIC_IPV4="$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    PUBLIC_IPV4="$(ip -o -4 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
   if [ -z "$PUBLIC_IPV6" ]; then
-    PUBLIC_IPV6="$(ip -o -6 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    PUBLIC_IPV6="$(ip -o -6 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
   export PUBLIC_IPV4 PUBLIC_IPV6
 }

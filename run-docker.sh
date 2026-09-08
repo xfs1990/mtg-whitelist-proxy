@@ -45,10 +45,10 @@ detect_public_addresses() {
   fi
 
   if [ -z "$public_ipv4" ]; then
-    public_ipv4="$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    public_ipv4="$(ip -o -4 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
   if [ -z "$public_ipv6" ]; then
-    public_ipv6="$(ip -o -6 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+    public_ipv6="$(ip -o -6 addr show scope global 2>/dev/null | awk 'NR == 1 { split($4, a, "/"); value = a[1] } END { if (value) print value }')"
   fi
 }
 
