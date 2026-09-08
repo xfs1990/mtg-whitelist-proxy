@@ -18,8 +18,9 @@
 适合正常 VPS。机器上需要已经安装 Docker。
 
 ```bash
+docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+
 docker run -d \
-  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \
@@ -54,8 +55,9 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/ru
 默认会自动生成密码和端口。你也可以自己指定：
 
 ```bash
+docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+
 docker run -d \
-  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \
@@ -70,8 +72,9 @@ docker run -d \
 强制 IPv6 出站：
 
 ```bash
+docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+
 docker run -d \
-  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \

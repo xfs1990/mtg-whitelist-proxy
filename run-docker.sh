@@ -94,6 +94,8 @@ print_urls() {
 require_docker
 mkdir -p "$data_dir"
 
+docker pull "$image" >/dev/null
+
 if [ "$replace" = "1" ] && container_exists; then
   docker rm -f "$container" >/dev/null
 fi
