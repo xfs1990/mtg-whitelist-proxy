@@ -19,6 +19,7 @@
 
 ```bash
 docker run -d \
+  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \
@@ -54,6 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/ru
 
 ```bash
 docker run -d \
+  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \
@@ -69,6 +71,7 @@ docker run -d \
 
 ```bash
 docker run -d \
+  --pull=always \
   --name mtg-whitelist-proxy \
   --restart unless-stopped \
   --network host \
