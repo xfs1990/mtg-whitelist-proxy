@@ -253,8 +253,18 @@ start_services() {
     openrc)
       rc-update add mtg-whitelist-server default >/dev/null
       rc-update add mtg-whitelist-proxy default >/dev/null
-      rc-service mtg-whitelist-server restart
-      rc-service mtg-whitelist-proxy restart
+      rc-service mtg-whitelist-proxy stop >/dev/null 2>&1 || true
+      rc-service mtg-whitelist-server stop >/dev/null 2>&1 || true
+      rc-service mtg-whitelist-server start || true
+      rc-service mtg-whitelist-proxy start || true
+      if ! rc-service mtg-whitelist-server status >/dev/null 2>&1; then
+        echo "mtg-whitelist-server did not start." >&2
+        exit 1
+      fi
+      if ! rc-service mtg-whitelist-proxy status >/dev/null 2>&1; then
+        echo "mtg-whitelist-proxy did not start." >&2
+        exit 1
+      fi
       ;;
   esac
 }
