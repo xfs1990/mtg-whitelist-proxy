@@ -1,19 +1,31 @@
 # mtg-whitelist-proxy
 
-基于 MTG 的 Telegram MTProto Proxy，一键启动，带动态白名单页面。
+基于 MTG 的 Telegram MTProto Proxy，带动态白名单页面。
 
-手机打开安装脚本返回的 `IPv4-URL` 或 `IPv6-URL` 后，会自动放行当前 IP，并显示可点击的 Telegram 导入链接。
+手机打开安装输出里的 `IPv4-URL` 或 `IPv6-URL` 后，会自动放行当前 IP，并显示可点击的 Telegram 导入链接。
 
 项目只维护自己的 nftables 表 `inet mtproxy_guard`，不会清空系统防火墙。
 
-## 两种安装方式
+## 选择用法
 
-| 机器类型 | 用法 |
+| 场景 | 推荐方式 |
 | --- | --- |
-| 正常 VPS，已经有 Docker | Docker 版 |
-| 低配小鸡、NAT 小鸡、Docker 太重 | tiny 版 |
+| 正常 VPS，已经有 Docker | Docker 标准命令 |
+| 自己用，想一行启动并直接看到地址 | Docker 懒人脚本 |
+| 低配小鸡、内存很小、Docker 太重 | tiny 版 |
+| NAT 小鸡、只有面板端口转发 | tiny 版并手动指定端口 |
 
-## 方式一：Docker 版
+默认会自动生成：
+
+- MTG 代理端口
+- 白名单页面端口
+- `/add/<token>` 密码
+- MTG secret
+- IPv4 / IPv6 出站模式
+
+只有 NAT 或端口受限机器需要手动指定端口。
+
+## Docker 标准命令
 
 适合正常 VPS。机器上需要已经安装 Docker。
 
@@ -42,78 +54,31 @@ IPv4-URL: http://IPv4:端口/add/密码
 IPv6-URL: http://[IPv6]:端口/add/密码
 ```
 
-然后用手机打开 `IPv4-URL` 或 `IPv6-URL`。
+然后用手机打开其中一个地址。
 
-想一行启动并直接打印地址，也可以用辅助脚本：
+## Docker 懒人脚本
+
+适合自己用：一行启动 Docker 容器，并直接打印白名单地址。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | bash
 ```
 
-### Docker 固定参数
-
-默认会自动生成密码和端口。只有端口受限、想固定密码、或要指定公网地址时，才需要自己传参数：
-
-```bash
-docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
-
-docker run -d \
-  --name mtg-whitelist-proxy \
-  --restart unless-stopped \
-  --network host \
-  --cap-add NET_ADMIN \
-  -v /opt/mtg-whitelist-proxy/data:/data \
-  -e ADD_TOKEN='your-password' \
-  -e PORT=18188 \
-  -e ADD_PORT=8080 \
-  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
-```
-
-强制 IPv6 出站：
-
-```bash
-docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
-
-docker run -d \
-  --name mtg-whitelist-proxy \
-  --restart unless-stopped \
-  --network host \
-  --cap-add NET_ADMIN \
-  -v /opt/mtg-whitelist-proxy/data:/data \
-  -e IP_MODE=only-ipv6 \
-  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
-```
-
-已有容器需要换参数时，先删旧容器再重新 `docker run`：
-
-```bash
-docker rm -f mtg-whitelist-proxy
-```
-
-如果使用辅助脚本，可以这样重建：
+重建已有容器：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | RECREATE=1 bash
 ```
 
-查看 Docker 版状态：
+## tiny 版
 
-```bash
-docker ps
-docker logs mtg-whitelist-proxy --tail=100
-```
-
-## 方式二：tiny 版
-
-适合低配机器，不需要 Docker。
+适合低配机器，不需要 Docker。IPv4-only、IPv6-only、双栈机器都会自动检测。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | bash
 ```
 
-默认会自动生成代理端口、白名单页面端口、密码和 MTG secret。IPv4-only、IPv6-only、双栈机器都会在启动时自动检测。
-
-脚本会下载 MTG 单文件，并用 systemd 或 OpenRC 启动两个服务：
+脚本会下载 MTG 单文件，并用 systemd 或 OpenRC 启动：
 
 ```text
 mtg-whitelist-proxy
@@ -126,25 +91,11 @@ Alpine 极简系统如果没有 `curl` / `bash`，用：
 wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | sh
 ```
 
-### tiny 特殊网络
+## NAT 小鸡
 
-如果脚本能下载，但 MTG 二进制下载失败，可以换一个你能访问的下载地址：
+NAT 机器通常只有一段外部端口，服务无法自己猜到公网端口，所以必须手动指定。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_URL='https://example.com/mtg-linux.tar.gz' bash
-```
-
-也可以先把 MTG 压缩包传到机器上，再离线安装：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_FILE='/root/mtg-linux.tar.gz' bash
-```
-
-### NAT 小鸡
-
-只有这种情况需要手动指定端口：服务商只给一段公网端口，或者面板要求端口转发。
-
-从面板分配的端口里挑两个：
+从服务商面板分配的端口里挑两个：
 
 ```text
 PROXY_PORT = MTG 代理端口
@@ -158,7 +109,7 @@ YOUR_PUBLIC_IP:PROXY_PORT -> YOUR_PRIVATE_IP:PROXY_PORT
 YOUR_PUBLIC_IP:ADD_PORT   -> YOUR_PRIVATE_IP:ADD_PORT
 ```
 
-安装时显式传公网 IP 和端口：
+安装：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | PUBLIC_IPV4=YOUR_PUBLIC_IP PORT=PROXY_PORT ADD_PORT=ADD_PORT bash
@@ -170,34 +121,25 @@ Alpine 极简系统：
 wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | PUBLIC_IPV4=YOUR_PUBLIC_IP PORT=PROXY_PORT ADD_PORT=ADD_PORT sh
 ```
 
-输出会类似：
+手机打开输出的 `IPv4-URL`，页面里的 Telegram 代理端口会是 `PROXY_PORT`。
 
-```text
-IPv4-URL: http://YOUR_PUBLIC_IP:ADD_PORT/add/随机密码
-```
+## 特殊网络
 
-手机打开这个地址，页面里的 Telegram 代理端口会是 `PROXY_PORT`。
-
-把 `YOUR_PUBLIC_IP`、`YOUR_PRIVATE_IP`、`PROXY_PORT`、`ADD_PORT` 换成你自己面板分配的值。
-
-查看 tiny 状态：
+如果安装脚本能下载，但 MTG 二进制下载失败，说明这台机器到 GitHub Release 不通。可以换一个可访问的下载地址：
 
 ```bash
-systemctl status mtg-whitelist-proxy mtg-whitelist-server
-journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_URL='https://example.com/mtg-linux.tar.gz' bash
 ```
 
-Alpine / OpenRC：
+也可以先把 MTG 压缩包传到机器上，再离线安装：
 
-```sh
-rc-service mtg-whitelist-proxy status
-rc-service mtg-whitelist-server status
-tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_FILE='/root/mtg-linux.tar.gz' bash
 ```
 
 ## 常用参数
 
-所有方式都支持这些环境变量：
+所有方式都支持这些环境变量。默认不用填，按需覆盖。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -213,6 +155,21 @@ tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
 | `PUBLIC_HOST` | 空 | 强制 Telegram 链接使用指定域名或 IP |
 | `MTG_URL` | 官方 GitHub Release | tiny 版自定义 MTG 下载地址 |
 | `MTG_FILE` | 空 | tiny 版使用本地 MTG 压缩包 |
+
+固定密码和端口示例：
+
+```bash
+docker run -d \
+  --name mtg-whitelist-proxy \
+  --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  -v /opt/mtg-whitelist-proxy/data:/data \
+  -e ADD_TOKEN='your-password' \
+  -e PORT=18188 \
+  -e ADD_PORT=8080 \
+  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+```
 
 ## IP_MODE
 
@@ -236,23 +193,34 @@ SUBNET  IPv4 /32，IPv6 /64
 
 手机网络建议用默认的 `SUBNET`，因为移动网络 IPv6 地址经常变化。
 
-## 页面效果
+如果页面能打开，但 Telegram 连不上，常见原因是浏览器加白的 IP 和 Telegram 实际连接的 IP 不一致。先关闭手机上的 VPN、代理、iCloud Private Relay，再重新打开白名单地址。
 
-访问：
+## 查看状态
 
-```text
-http://服务器IP:ADD_PORT/add/ADD_TOKEN
+Docker：
+
+```bash
+docker ps
+docker logs mtg-whitelist-proxy --tail=100
+nft list table inet mtproxy_guard
 ```
 
-页面会显示：
+tiny systemd：
 
-- 识别到的 IP
-- 已放行范围
-- 代理地址
-- `打开 Telegram`
-- `打开 t.me 链接`
-- 可复制的 `tg://proxy?...`
-- 可复制的 `https://t.me/proxy?...`
+```bash
+systemctl status mtg-whitelist-proxy mtg-whitelist-server
+journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f
+nft list table inet mtproxy_guard
+```
+
+tiny Alpine / OpenRC：
+
+```sh
+rc-service mtg-whitelist-proxy status
+rc-service mtg-whitelist-server status
+tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
+nft list table inet mtproxy_guard
+```
 
 ## 卸载
 
