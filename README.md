@@ -125,6 +125,12 @@ wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/boo
 
 ## 特殊网络
 
+如果是 IPv6-only 机器，可以先强制安装过程走 IPv6：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | FORCE_IPV6=1 bash
+```
+
 如果安装脚本能下载，但 MTG 二进制下载失败，说明这台机器到 GitHub Release 不通。可以换一个可访问的下载地址：
 
 ```bash
@@ -161,6 +167,8 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 | `PUBLIC_HOST` | 空 | 强制 Telegram 链接使用指定域名或 IP |
 | `MTG_URL` | 官方 GitHub Release | tiny 版自定义 MTG 下载地址 |
 | `MTG_FILE` | 空 | tiny 版使用本地 MTG 压缩包 |
+| `FORCE_IPV4` | `0` | tiny 版强制 apt/curl 走 IPv4 |
+| `FORCE_IPV6` | `0` | tiny 版强制 apt/curl 走 IPv6 |
 | `APT_LOCK_TIMEOUT` | `120` | tiny 版等待 apt 锁的秒数 |
 
 固定密码和端口示例：

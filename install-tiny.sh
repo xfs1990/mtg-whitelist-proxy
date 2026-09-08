@@ -20,6 +20,7 @@ public_host="${PUBLIC_HOST:-}"
 public_ipv4="${PUBLIC_IPV4:-}"
 public_ipv6="${PUBLIC_IPV6:-}"
 force_ipv4="${FORCE_IPV4:-0}"
+force_ipv6="${FORCE_IPV6:-0}"
 apt_lock_timeout="${APT_LOCK_TIMEOUT:-120}"
 init_system=""
 
@@ -33,6 +34,8 @@ apt_cmd() {
     set +e
     if [ "$force_ipv4" = "1" ]; then
       apt-get -o Acquire::ForceIPv4=true "$@"
+    elif [ "$force_ipv6" = "1" ]; then
+      apt-get -o Acquire::ForceIPv6=true "$@"
     else
       apt-get "$@"
     fi
@@ -73,6 +76,8 @@ install_packages() {
 curl_cmd() {
   if [ "$force_ipv4" = "1" ]; then
     curl -4 "$@"
+  elif [ "$force_ipv6" = "1" ]; then
+    curl -6 "$@"
   else
     curl "$@"
   fi
@@ -356,6 +361,10 @@ print_urls() {
 }
 
 require_root
+if [ "$force_ipv4" = "1" ] && [ "$force_ipv6" = "1" ]; then
+  echo "FORCE_IPV4 和 FORCE_IPV6 不能同时启用。" >&2
+  exit 2
+fi
 install_packages
 
 domain="$(init_value DOMAIN "$domain" cloudflare.com)"
@@ -410,18 +419,25 @@ if [ -n "$mtg_file" ]; then
   cp "$mtg_file" "${tmp_dir}/${mtg_archive}"
 else
   if ! curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"; then
-    echo "下载 MTG 失败：${mtg_url}" >&2
-    echo "如果这台机器不能访问 github.com，可以设置 MTG_URL 指向可访问的镜像地址，或先上传压缩包后设置 MTG_FILE=/path/to/${mtg_archive}。" >&2
-    exit 1
+    if [ -x "${install_dir}/bin/mtg" ]; then
+      echo "下载 MTG 失败，继续复用已安装的 MTG：${install_dir}/bin/mtg" >&2
+      mtg_path="${install_dir}/bin/mtg"
+    else
+      echo "下载 MTG 失败：${mtg_url}" >&2
+      echo "如果这台机器不能访问 github.com，可以设置 MTG_URL 指向可访问的镜像地址，或先上传压缩包后设置 MTG_FILE=/path/to/${mtg_archive}。" >&2
+      exit 1
+    fi
   fi
 fi
-tar -xzf "${tmp_dir}/${mtg_archive}" -C "$tmp_dir"
-mtg_path="$(find "$tmp_dir" -type f -name mtg -print -quit)"
-if [ -z "$mtg_path" ]; then
-  echo "在 ${mtg_archive} 中没有找到 mtg 二进制文件。" >&2
-  exit 1
+if [ -z "${mtg_path:-}" ]; then
+  tar -xzf "${tmp_dir}/${mtg_archive}" -C "$tmp_dir"
+  mtg_path="$(find "$tmp_dir" -type f -name mtg -print -quit)"
+  if [ -z "$mtg_path" ]; then
+    echo "在 ${mtg_archive} 中没有找到 mtg 二进制文件。" >&2
+    exit 1
+  fi
+  install -m 0755 "$mtg_path" "${install_dir}/bin/mtg"
 fi
-install -m 0755 "$mtg_path" "${install_dir}/bin/mtg"
 
 curl_cmd -fsSL "${repo_raw}/app/server.py" -o "${install_dir}/app/server.py"
 curl_cmd -fsSL "${repo_raw}/scripts/firewall.sh" -o "${install_dir}/scripts/firewall.sh"
