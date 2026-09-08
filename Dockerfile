@@ -17,11 +17,10 @@ COPY app/ /app/
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     /usr/local/bin/detect-network.sh \
     /usr/local/bin/firewall.sh \
+    /usr/local/bin/healthcheck.sh \
     && mkdir -p /data
 
-ENV PORT=18188 \
-    ADD_PORT=8080 \
-    IP_MODE=auto \
+ENV IP_MODE=auto \
     WHITELIST_MODE=SUBNET \
     IPV4_SUBNET=32 \
     IPV6_SUBNET=64 \
@@ -30,6 +29,6 @@ ENV PORT=18188 \
 
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -fsS "http://127.0.0.1:${ADD_PORT}/healthz" || exit 1
+    CMD /usr/local/bin/healthcheck.sh || exit 1
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

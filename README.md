@@ -24,30 +24,15 @@ The container modifies the host network namespace, so review the ports before ru
 
 ## Configuration
 
-Copy the example file and edit it:
+All runtime values are optional. When `PORT`, `ADD_PORT`, `SECRET`, or
+`ADD_TOKEN` are empty, the container generates them once and stores them under
+`/data/generated/`. Later restarts with the same volume keep the same values.
 
-```bash
-cp .env.example .env
-```
-
-Set:
+Available overrides:
 
 ```env
-ADD_TOKEN=...
-DOMAIN=cloudflare.com
-# Optional. If SECRET is empty, the container generates one on startup.
-SECRET=
-# Optional: force the public domain or IP in generated Telegram links.
-PUBLIC_HOST=
-PUBLIC_IPV4=
-PUBLIC_IPV6=
-```
-
-Available options:
-
-```env
-PORT=18188
-ADD_PORT=8080
+PORT=
+ADD_PORT=
 
 SECRET=
 DOMAIN=cloudflare.com
@@ -83,11 +68,14 @@ For mobile networks, `SUBNET` is usually more practical because IPv6 privacy add
 On a VPS that already has Docker:
 
 ```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e ADD_TOKEN='change-this-password' -e DOMAIN='cloudflare.com' -e PORT=18188 -e ADD_PORT=8080 -e IP_MODE=auto -e WHITELIST_MODE=SUBNET ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 ```
 
-The container generates `SECRET` automatically when it is not provided. If
-`ADD_TOKEN` is empty, it also generates a token and prints the add URLs in logs.
+To pin values yourself, add only the overrides you need:
+
+```bash
+docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e ADD_TOKEN='Pass' -e PORT=18188 -e ADD_PORT=8080 -e DOMAIN='cloudflare.com' -e IP_MODE=only-ipv6 ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+```
 
 Show the add URLs:
 
@@ -98,8 +86,8 @@ docker logs mtg-whitelist-proxy --tail=80
 The logs include the reachable addresses detected on the VPS:
 
 ```text
-IPv4-URL: http://IPv4:8080/add/password
-IPv6-URL: http://[IPv6]:8080/add/password
+IPv4-URL: http://IPv4:ADD_PORT/add/password
+IPv6-URL: http://[IPv6]:ADD_PORT/add/password
 ```
 
 Open one URL from your phone. The page updates the whitelist and shows clickable
@@ -149,7 +137,6 @@ Copy the repository files to the VPS, then:
 
 ```bash
 cp .env.example .env
-# Edit SECRET and ADD_TOKEN in .env first.
 docker compose pull
 docker compose up -d
 ```
@@ -174,29 +161,20 @@ For local development, build with `docker build -t mtg-whitelist-proxy .`.
 From the device that should be allowed:
 
 ```text
-http://SERVER_IP:8080/add/YOUR_ADD_TOKEN
+http://SERVER_IP:ADD_PORT/add/YOUR_ADD_TOKEN
 ```
 
 For IPv6:
 
 ```text
-http://[SERVER_IPV6]:8080/add/YOUR_ADD_TOKEN
+http://[SERVER_IPV6]:ADD_PORT/add/YOUR_ADD_TOKEN
 ```
 
-Example response:
-
-```text
-Detected: 2409:8a62:1ea:11d0::1234
-Allowed: 2409:8a62:1ea:11d0::/64
-Mode: SUBNET
-Proxy: [SERVER_IPV6]:18188
-Telegram: tg://proxy?server=SERVER_IPV6&port=18188&secret=...
-Web: https://t.me/proxy?server=SERVER_IPV6&port=18188&secret=...
-```
-
-Open either generated link to import the proxy into Telegram. When `PUBLIC_HOST`
-is empty, the service uses the host from the `/add/` request; set it explicitly
-when the add endpoint is accessed through a reverse proxy or private hostname.
+The add page is HTML and mobile friendly. It shows the detected IP, allowed
+network, clickable `tg://` and `https://t.me/proxy?...` links, plus IPv4 and IPv6
+add URLs when the VPS has those addresses. When `PUBLIC_HOST` is empty, the
+service uses the host from the `/add/` request; set it explicitly when the add
+endpoint is accessed through a reverse proxy or private hostname.
 
 ## Network Mode
 
@@ -227,7 +205,8 @@ docker logs -f mtg-whitelist-proxy
 Check health:
 
 ```bash
-curl http://127.0.0.1:8080/healthz
+port="$(cat /opt/mtg-whitelist-proxy/data/generated/add_port)"
+curl "http://127.0.0.1:${port}/healthz"
 ```
 
 Inspect persisted whitelist:

@@ -5,8 +5,10 @@ if [ "$#" -gt 0 ]; then
   exec /usr/local/bin/mtg "$@"
 fi
 
-PORT="${PORT:-18188}"
-ADD_PORT="${ADD_PORT:-8080}"
+DATA_DIR="${DATA_DIR:-/data}"
+GENERATED_DIR="${DATA_DIR}/generated"
+PORT="${PORT:-}"
+ADD_PORT="${ADD_PORT:-}"
 DOMAIN="${DOMAIN:-cloudflare.com}"
 IP_MODE="${IP_MODE:-auto}"
 IP_MODE="${IP_MODE,,}"
@@ -19,6 +21,75 @@ IPV4_SUBNET="${IPV4_SUBNET:-32}"
 IPV6_SUBNET="${IPV6_SUBNET:-64}"
 PUBLIC_IPV4="${PUBLIC_IPV4:-}"
 PUBLIC_IPV6="${PUBLIC_IPV6:-}"
+
+mkdir -p "$GENERATED_DIR"
+
+random_hex() {
+  local bytes="$1"
+  LC_ALL=C od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n'
+}
+
+random_port() {
+  local minimum="$1"
+  local span="$2"
+  local candidate
+
+  for _ in $(seq 1 20); do
+    candidate="$((minimum + 0x$(random_hex 2) % span))"
+    if ! ss -ltn 2>/dev/null | awk -v port=":${candidate}" '$4 ~ port "$" {found = 1} END {exit found ? 0 : 1}'; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  printf '%s\n' "$((minimum + 0x$(random_hex 2) % span))"
+}
+
+saved_value() {
+  local name="$1"
+  local file="${GENERATED_DIR}/${name}"
+
+  if [ -s "$file" ]; then
+    head -n 1 "$file"
+  fi
+  return 0
+}
+
+save_value() {
+  local name="$1"
+  local value="$2"
+  local file="${GENERATED_DIR}/${name}"
+
+  umask 077
+  printf '%s\n' "$value" >"$file"
+}
+
+init_value() {
+  local name="$1"
+  local current="$2"
+  local generated="$3"
+  local value
+
+  if [ -n "$current" ]; then
+    value="$current"
+  else
+    value="$(saved_value "$name")"
+    if [ -z "$value" ]; then
+      value="$generated"
+    fi
+  fi
+
+  save_value "$name" "$value"
+  printf '%s\n' "$value"
+}
+
+PORT="$(init_value port "$PORT" "$(random_port 20000 20000)")"
+ADD_PORT="$(init_value add_port "$ADD_PORT" "$(random_port 10000 10000)")"
+
+if [ "$PORT" = "$ADD_PORT" ]; then
+  ADD_PORT="$(random_port 10000 10000)"
+  save_value add_port "$ADD_PORT"
+fi
 
 validate_number() {
   local name="$1"
@@ -42,15 +113,27 @@ if [ "$PORT" = "$ADD_PORT" ]; then
   exit 2
 fi
 
+export DATA_DIR PORT ADD_PORT DOMAIN IP_MODE WHITELIST_MODE IPV4_SUBNET IPV6_SUBNET
+
+if [ -z "$SECRET" ]; then
+  SECRET="$(saved_value secret)"
+fi
 if [ -z "$SECRET" ]; then
   SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
   echo "Generated MTG secret for domain: $DOMAIN"
 fi
+save_value secret "$SECRET"
 export SECRET
 
 if [ "$WHITELIST_MODE" != "OFF" ] && [ -z "$ADD_TOKEN" ]; then
-  ADD_TOKEN="$(LC_ALL=C od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
-  echo "Generated whitelist token."
+  ADD_TOKEN="$(saved_value add_token)"
+  if [ -z "$ADD_TOKEN" ]; then
+    ADD_TOKEN="$(random_hex 12)"
+    echo "Generated whitelist token."
+  fi
+fi
+if [ -n "$ADD_TOKEN" ]; then
+  save_value add_token "$ADD_TOKEN"
 fi
 export ADD_TOKEN
 
@@ -67,10 +150,9 @@ case "$WHITELIST_MODE" in
     ;;
 esac
 
-mkdir -p /data
-touch /data/whitelist.json
-if [ ! -s /data/whitelist.json ]; then
-  printf '{"entries":[]}\n' >/data/whitelist.json
+touch "${DATA_DIR}/whitelist.json"
+if [ ! -s "${DATA_DIR}/whitelist.json" ]; then
+  printf '{"entries":[]}\n' >"${DATA_DIR}/whitelist.json"
 fi
 
 selected_ip_mode="$(IP_MODE="$IP_MODE" /usr/local/bin/detect-network.sh)"
