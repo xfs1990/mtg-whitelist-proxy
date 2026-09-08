@@ -135,10 +135,16 @@ Review `install.sh` before piping it to a privileged shell on production systems
 
 For very small VPS instances where Docker is too heavy, use the native tiny
 installer. It installs only small system packages, downloads the MTG binary, and
-runs MTG plus the whitelist service with systemd:
+runs MTG plus the whitelist service with systemd or OpenRC:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | bash
+```
+
+On minimal Alpine systems without `curl` or `bash`, use the bootstrap:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | sh
 ```
 
 For NAT VPS panels, keep fixed ports and forward both of them:
@@ -166,6 +172,12 @@ Tiny logs:
 
 ```bash
 journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f
+```
+
+On Alpine/OpenRC:
+
+```sh
+tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
 ```
 
 ### Compose

@@ -17,6 +17,7 @@ public_host="${PUBLIC_HOST:-}"
 public_ipv4="${PUBLIC_IPV4:-}"
 public_ipv6="${PUBLIC_IPV6:-}"
 force_ipv4="${FORCE_IPV4:-0}"
+init_system=""
 
 apt_cmd() {
   if [ "$force_ipv4" = "1" ]; then
@@ -24,6 +25,24 @@ apt_cmd() {
   else
     apt-get "$@"
   fi
+}
+
+install_packages() {
+  if command -v apk >/dev/null 2>&1; then
+    apk update
+    apk add bash curl ca-certificates python3 nftables iproute2 tar coreutils openrc
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt_cmd update
+    apt_cmd install -y ca-certificates curl tar python3-minimal nftables iproute2 coreutils
+    return
+  fi
+
+  echo "Unsupported package manager. Install bash, curl, python3, nftables, iproute2, tar, and coreutils first." >&2
+  exit 1
 }
 
 curl_cmd() {
@@ -106,6 +125,28 @@ DATA_DIR=${install_dir}/data
 EOF
 }
 
+write_runner_scripts() {
+  cat >"${install_dir}/run-server.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+set -a
+. "${install_dir}/mtg-whitelist.env"
+set +a
+exec /usr/bin/python3 "${install_dir}/app/server.py"
+EOF
+
+  cat >"${install_dir}/run-proxy.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+set -a
+. "${install_dir}/mtg-whitelist.env"
+set +a
+exec "${install_dir}/bin/mtg" simple-run --prefer-ip "\${IP_MODE}" "[::]:\${PORT}" "\${SECRET}"
+EOF
+
+  chmod +x "${install_dir}/run-server.sh" "${install_dir}/run-proxy.sh"
+}
+
 write_systemd_units() {
   cat >/etc/systemd/system/mtg-whitelist-server.service <<EOF
 [Unit]
@@ -116,7 +157,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=${install_dir}/mtg-whitelist.env
-ExecStart=/usr/bin/python3 ${install_dir}/app/server.py
+ExecStart=${install_dir}/run-server.sh
 Restart=always
 RestartSec=2
 
@@ -134,7 +175,7 @@ Wants=network-online.target mtg-whitelist-server.service
 Type=simple
 EnvironmentFile=${install_dir}/mtg-whitelist.env
 ExecStartPre=${install_dir}/scripts/firewall.sh reset
-ExecStart=${install_dir}/bin/mtg simple-run --prefer-ip ${ip_mode} [::]:${port} ${secret}
+ExecStart=${install_dir}/run-proxy.sh
 ExecStopPost=${install_dir}/scripts/firewall.sh destroy
 Restart=always
 RestartSec=2
@@ -142,6 +183,79 @@ RestartSec=2
 [Install]
 WantedBy=multi-user.target
 EOF
+}
+
+write_openrc_services() {
+  cat >/etc/init.d/mtg-whitelist-server <<EOF
+#!/sbin/openrc-run
+name="MTG whitelist HTTP service"
+command="${install_dir}/run-server.sh"
+command_background="yes"
+pidfile="/run/mtg-whitelist-server.pid"
+output_log="/var/log/mtg-whitelist-server.log"
+error_log="/var/log/mtg-whitelist-server.log"
+
+depend() {
+  need net
+}
+EOF
+
+  cat >/etc/init.d/mtg-whitelist-proxy <<EOF
+#!/sbin/openrc-run
+name="MTG proxy"
+command="${install_dir}/run-proxy.sh"
+command_background="yes"
+pidfile="/run/mtg-whitelist-proxy.pid"
+output_log="/var/log/mtg-whitelist-proxy.log"
+error_log="/var/log/mtg-whitelist-proxy.log"
+
+depend() {
+  need net
+  need mtg-whitelist-server
+}
+
+start_pre() {
+  ${install_dir}/scripts/firewall.sh reset
+}
+
+stop_post() {
+  ${install_dir}/scripts/firewall.sh destroy || true
+}
+EOF
+
+  chmod +x /etc/init.d/mtg-whitelist-server /etc/init.d/mtg-whitelist-proxy
+}
+
+detect_init_system() {
+  if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+    init_system="systemd"
+    return
+  fi
+
+  if command -v rc-service >/dev/null 2>&1; then
+    init_system="openrc"
+    return
+  fi
+
+  echo "No supported service manager found. Need systemd or OpenRC." >&2
+  exit 1
+}
+
+start_services() {
+  case "$init_system" in
+    systemd)
+      systemctl daemon-reload
+      systemctl enable --now mtg-whitelist-server.service
+      systemctl restart mtg-whitelist-proxy.service
+      systemctl enable mtg-whitelist-proxy.service >/dev/null
+      ;;
+    openrc)
+      rc-update add mtg-whitelist-server default >/dev/null
+      rc-update add mtg-whitelist-proxy default >/dev/null
+      rc-service mtg-whitelist-server restart
+      rc-service mtg-whitelist-proxy restart
+      ;;
+  esac
 }
 
 print_urls() {
@@ -154,7 +268,11 @@ print_urls() {
     echo "IPv6-URL: http://[${public_ipv6}]:${add_port}/add/${add_token}"
   fi
   echo "Config: ${install_dir}/mtg-whitelist.env"
-  echo "Logs: journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f"
+  if [ "$init_system" = "openrc" ]; then
+    echo "Logs: tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log"
+  else
+    echo "Logs: journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f"
+  fi
   echo
 }
 
@@ -172,9 +290,7 @@ if [[ "$add_token" == */* ]]; then
   exit 2
 fi
 
-export DEBIAN_FRONTEND=noninteractive
-apt_cmd update
-apt_cmd install -y ca-certificates curl tar python3-minimal nftables iproute2 coreutils
+install_packages
 
 mkdir -p "${install_dir}/bin" "${install_dir}/app" "${install_dir}/scripts" "${install_dir}/data"
 
@@ -216,11 +332,13 @@ if [ ! -s "${install_dir}/data/whitelist.json" ]; then
 fi
 
 write_env
-write_systemd_units
-
-systemctl daemon-reload
-systemctl enable --now mtg-whitelist-server.service
-systemctl restart mtg-whitelist-proxy.service
-systemctl enable mtg-whitelist-proxy.service >/dev/null
+write_runner_scripts
+detect_init_system
+if [ "$init_system" = "openrc" ]; then
+  write_openrc_services
+else
+  write_systemd_units
+fi
+start_services
 
 print_urls
