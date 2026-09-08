@@ -20,14 +20,36 @@ public_host="${PUBLIC_HOST:-}"
 public_ipv4="${PUBLIC_IPV4:-}"
 public_ipv6="${PUBLIC_IPV6:-}"
 force_ipv4="${FORCE_IPV4:-0}"
+apt_lock_timeout="${APT_LOCK_TIMEOUT:-120}"
 init_system=""
 
 apt_cmd() {
-  if [ "$force_ipv4" = "1" ]; then
-    apt-get -o Acquire::ForceIPv4=true "$@"
-  else
-    apt-get "$@"
-  fi
+  local deadline
+  local status
+
+  deadline=$((SECONDS + apt_lock_timeout))
+
+  while true; do
+    set +e
+    if [ "$force_ipv4" = "1" ]; then
+      apt-get -o Acquire::ForceIPv4=true "$@"
+    else
+      apt-get "$@"
+    fi
+    status="$?"
+    set -e
+
+    if [ "$status" -eq 0 ]; then
+      return 0
+    fi
+
+    if [ "$status" -ne 100 ] || [ "$SECONDS" -ge "$deadline" ]; then
+      return "$status"
+    fi
+
+    echo "apt 正在被其他进程占用，等待 5 秒后重试..." >&2
+    sleep 5
+  done
 }
 
 install_packages() {

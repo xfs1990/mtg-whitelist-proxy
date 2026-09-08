@@ -137,6 +137,12 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_FILE='/root/mtg-linux.tar.gz' bash
 ```
 
+如果 Debian / Ubuntu 提示 apt 被其他进程占用，通常是系统后台更新还没结束。脚本默认会等待最多 120 秒，也可以自己调长：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | APT_LOCK_TIMEOUT=300 bash
+```
+
 ## 常用参数
 
 所有方式都支持这些环境变量。默认不用填，按需覆盖。
@@ -155,6 +161,7 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 | `PUBLIC_HOST` | 空 | 强制 Telegram 链接使用指定域名或 IP |
 | `MTG_URL` | 官方 GitHub Release | tiny 版自定义 MTG 下载地址 |
 | `MTG_FILE` | 空 | tiny 版使用本地 MTG 压缩包 |
+| `APT_LOCK_TIMEOUT` | `120` | tiny 版等待 apt 锁的秒数 |
 
 固定密码和端口示例：
 
