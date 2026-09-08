@@ -25,6 +25,7 @@ WHITELIST_MODE = os.getenv("WHITELIST_MODE", "SUBNET").upper()
 IPV4_SUBNET = int(os.getenv("IPV4_SUBNET", "32"))
 IPV6_SUBNET = int(os.getenv("IPV6_SUBNET", "64"))
 DATA_FILE = Path(os.getenv("WHITELIST_FILE", "/data/whitelist.json"))
+FIREWALL_SCRIPT = os.getenv("FIREWALL_SCRIPT", "/usr/local/bin/firewall.sh")
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
 
 lock = threading.Lock()
@@ -346,7 +347,7 @@ def persist_and_apply(ip, network):
         save_data(data)
 
     if WHITELIST_MODE != "OFF":
-        subprocess.run(["/usr/local/bin/firewall.sh", "add", str(network)], check=True)
+        subprocess.run([FIREWALL_SCRIPT, "add", str(network)], check=True)
 
 
 class Handler(BaseHTTPRequestHandler):

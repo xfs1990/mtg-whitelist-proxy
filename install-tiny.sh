@@ -121,6 +121,7 @@ IPV6_SUBNET=${ipv6_subnet}
 ADD_TOKEN=${add_token}
 LOG_LEVEL=info
 WHITELIST_FILE=${install_dir}/data/whitelist.json
+FIREWALL_SCRIPT=${install_dir}/scripts/firewall.sh
 DATA_DIR=${install_dir}/data
 EOF
 }
