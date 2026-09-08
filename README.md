@@ -131,7 +131,13 @@ wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/boo
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | FORCE_IPV6=1 bash
 ```
 
-如果安装脚本能下载，但 MTG 二进制下载失败，说明这台机器到 GitHub Release 不通。可以换一个可访问的下载地址：
+如果安装脚本能下载，但 MTG 二进制下载失败，说明这台机器到 GitHub Release 不通。脚本会自动尝试从 `vendor-bin` 分支下载：
+
+```text
+https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/vendor-bin/vendor/mtg-版本-linux-架构.tar.gz
+```
+
+如果还不通，可以换一个可访问的下载地址：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_URL='https://example.com/mtg-linux.tar.gz' bash
@@ -166,7 +172,9 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 | `PUBLIC_IPV6` | 自动识别 | 手动指定公网 IPv6 |
 | `PUBLIC_HOST` | 空 | 强制 Telegram 链接使用指定域名或 IP |
 | `MTG_URL` | 官方 GitHub Release | tiny 版自定义 MTG 下载地址 |
+| `MTG_VENDOR_URL` | `vendor-bin` raw 地址 | tiny 版自定义备用 MTG 下载地址 |
 | `MTG_FILE` | 空 | tiny 版使用本地 MTG 压缩包 |
+| `VENDOR_RAW` | 本仓库 `vendor-bin` 分支 | tiny 版备用 raw 分支地址 |
 | `FORCE_IPV4` | `0` | tiny 版强制 apt/curl 走 IPv4 |
 | `FORCE_IPV6` | `0` | tiny 版强制 apt/curl 走 IPv6 |
 | `APT_LOCK_TIMEOUT` | `120` | tiny 版等待 apt 锁的秒数 |

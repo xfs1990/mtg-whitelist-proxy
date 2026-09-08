@@ -2,10 +2,12 @@
 set -euo pipefail
 
 repo_raw="${REPO_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main}"
+vendor_raw="${VENDOR_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/vendor-bin}"
 install_dir="${INSTALL_DIR:-/opt/mtg-whitelist-proxy-tiny}"
 existing_env="${install_dir}/mtg-whitelist.env"
 mtg_version="${MTG_VERSION:-2.2.8}"
 mtg_url="${MTG_URL:-}"
+mtg_vendor_url="${MTG_VENDOR_URL:-}"
 mtg_file="${MTG_FILE:-}"
 domain="${DOMAIN:-}"
 port="${PORT:-}"
@@ -407,6 +409,9 @@ mtg_archive="mtg-${mtg_version}-linux-${arch}.tar.gz"
 if [ -z "$mtg_url" ]; then
   mtg_url="https://github.com/9seconds/mtg/releases/download/v${mtg_version}/${mtg_archive}"
 fi
+if [ -z "$mtg_vendor_url" ]; then
+  mtg_vendor_url="${vendor_raw}/vendor/${mtg_archive}"
+fi
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -419,11 +424,15 @@ if [ -n "$mtg_file" ]; then
   cp "$mtg_file" "${tmp_dir}/${mtg_archive}"
 else
   if ! curl_cmd -fsSL "$mtg_url" -o "${tmp_dir}/${mtg_archive}"; then
-    if [ -x "${install_dir}/bin/mtg" ]; then
+    echo "官方下载 MTG 失败，尝试备用 raw 包：${mtg_vendor_url}" >&2
+    if curl_cmd -fsSL "$mtg_vendor_url" -o "${tmp_dir}/${mtg_archive}"; then
+      echo "已从备用 raw 包下载 MTG。" >&2
+    elif [ -x "${install_dir}/bin/mtg" ]; then
       echo "下载 MTG 失败，继续复用已安装的 MTG：${install_dir}/bin/mtg" >&2
       mtg_path="${install_dir}/bin/mtg"
     else
       echo "下载 MTG 失败：${mtg_url}" >&2
+      echo "备用 raw 包也不可用：${mtg_vendor_url}" >&2
       echo "如果这台机器不能访问 github.com，可以设置 MTG_URL 指向可访问的镜像地址，或先上传压缩包后设置 MTG_FILE=/path/to/${mtg_archive}。" >&2
       exit 1
     fi
