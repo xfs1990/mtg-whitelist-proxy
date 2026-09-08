@@ -52,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/ru
 
 ### Docker 固定参数
 
-默认会自动生成密码和端口。你也可以自己指定：
+默认会自动生成密码和端口。只有端口受限、想固定密码、或要指定公网地址时，才需要自己传参数：
 
 ```bash
 docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
@@ -111,6 +111,8 @@ docker logs mtg-whitelist-proxy --tail=100
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | bash
 ```
 
+默认会自动生成代理端口、白名单页面端口、密码和 MTG secret。IPv4-only、IPv6-only、双栈机器都会在启动时自动检测。
+
 脚本会下载 MTG 单文件，并用 systemd 或 OpenRC 启动两个服务：
 
 ```text
@@ -140,7 +142,9 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 
 ### NAT 小鸡
 
-如果服务商只给一段公网端口，就从里面挑两个端口：
+只有这种情况需要手动指定端口：服务商只给一段公网端口，或者面板要求端口转发。
+
+从面板分配的端口里挑两个：
 
 ```text
 PROXY_PORT = MTG 代理端口
@@ -197,8 +201,8 @@ tail -f /var/log/mtg-whitelist-proxy.log /var/log/mtg-whitelist-server.log
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `PORT` | Docker 随机，tiny 默认 `18188` | MTG 代理端口 |
-| `ADD_PORT` | Docker 随机，tiny 默认 `8080` | 白名单页面端口 |
+| `PORT` | 自动生成 | MTG 代理端口 |
+| `ADD_PORT` | 自动生成 | 白名单页面端口 |
 | `ADD_TOKEN` | 自动生成 | `/add/<token>` 密码 |
 | `SECRET` | 自动生成 | MTG secret |
 | `DOMAIN` | `cloudflare.com` | 生成 secret 的伪装域名 |

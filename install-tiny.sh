@@ -3,16 +3,17 @@ set -euo pipefail
 
 repo_raw="${REPO_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main}"
 install_dir="${INSTALL_DIR:-/opt/mtg-whitelist-proxy-tiny}"
+existing_env="${install_dir}/mtg-whitelist.env"
 mtg_version="${MTG_VERSION:-2.2.8}"
 mtg_url="${MTG_URL:-}"
 mtg_file="${MTG_FILE:-}"
-domain="${DOMAIN:-cloudflare.com}"
-port="${PORT:-18188}"
-add_port="${ADD_PORT:-8080}"
-ip_mode="${IP_MODE:-auto}"
-whitelist_mode="${WHITELIST_MODE:-SUBNET}"
-ipv4_subnet="${IPV4_SUBNET:-32}"
-ipv6_subnet="${IPV6_SUBNET:-64}"
+domain="${DOMAIN:-}"
+port="${PORT:-}"
+add_port="${ADD_PORT:-}"
+ip_mode="${IP_MODE:-}"
+whitelist_mode="${WHITELIST_MODE:-}"
+ipv4_subnet="${IPV4_SUBNET:-}"
+ipv6_subnet="${IPV6_SUBNET:-}"
 add_token="${ADD_TOKEN:-}"
 secret="${SECRET:-}"
 public_host="${PUBLIC_HOST:-}"
@@ -58,6 +59,47 @@ curl_cmd() {
 random_hex() {
   local bytes="$1"
   LC_ALL=C od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n'
+}
+
+existing_value() {
+  local name="$1"
+  if [ -f "$existing_env" ]; then
+    awk -F= -v key="$name" '$1 == key { print substr($0, length(key) + 2); exit }' "$existing_env"
+  fi
+}
+
+init_value() {
+  local name="$1"
+  local current="$2"
+  local fallback="$3"
+  local value
+
+  if [ -n "$current" ]; then
+    value="$current"
+  else
+    value="$(existing_value "$name")"
+    if [ -z "$value" ]; then
+      value="$fallback"
+    fi
+  fi
+
+  printf '%s\n' "$value"
+}
+
+random_port() {
+  local minimum="$1"
+  local span="$2"
+  local candidate
+
+  for _ in $(seq 1 20); do
+    candidate="$((minimum + 0x$(random_hex 2) % span))"
+    if ! ss -ltn 2>/dev/null | awk -v port=":${candidate}" '$4 ~ port "$" {found = 1} END {exit found ? 0 : 1}'; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  printf '%s\n' "$((minimum + 0x$(random_hex 2) % span))"
 }
 
 require_root() {
@@ -292,8 +334,30 @@ print_urls() {
 }
 
 require_root
+install_packages
+
+domain="$(init_value DOMAIN "$domain" cloudflare.com)"
+port="$(init_value PORT "$port" "$(random_port 20000 20000)")"
+add_port="$(init_value ADD_PORT "$add_port" "$(random_port 10000 10000)")"
+ip_mode="${ip_mode:-auto}"
+whitelist_mode="$(init_value WHITELIST_MODE "$whitelist_mode" SUBNET)"
+ipv4_subnet="$(init_value IPV4_SUBNET "$ipv4_subnet" 32)"
+ipv6_subnet="$(init_value IPV6_SUBNET "$ipv6_subnet" 64)"
+add_token="$(init_value ADD_TOKEN "$add_token" "$(random_hex 12)")"
+secret="$(init_value SECRET "$secret" "")"
+public_host="$(init_value PUBLIC_HOST "$public_host" "")"
+public_ipv4="$(init_value PUBLIC_IPV4 "$public_ipv4" "")"
+public_ipv6="$(init_value PUBLIC_IPV6 "$public_ipv6" "")"
+
 validate_port PORT "$port"
 validate_port ADD_PORT "$add_port"
+
+if [ "$port" = "$add_port" ]; then
+  if [ -z "${ADD_PORT:-}" ]; then
+    add_port="$(random_port 10000 10000)"
+    validate_port ADD_PORT "$add_port"
+  fi
+fi
 
 if [ "$port" = "$add_port" ]; then
   echo "PORT 和 ADD_PORT 不能相同。" >&2
@@ -304,8 +368,6 @@ if [[ "$add_token" == */* ]]; then
   echo "ADD_TOKEN 不能包含 /。" >&2
   exit 2
 fi
-
-install_packages
 
 mkdir -p "${install_dir}/bin" "${install_dir}/app" "${install_dir}/scripts" "${install_dir}/data"
 
@@ -347,10 +409,6 @@ chmod +x "${install_dir}/scripts/firewall.sh" "${install_dir}/scripts/detect-net
 if [ -z "$secret" ]; then
   secret="$("${install_dir}/bin/mtg" generate-secret "$domain")"
 fi
-if [ -z "$add_token" ]; then
-  add_token="$(random_hex 12)"
-fi
-
 selected_ip_mode="$(IP_MODE="$ip_mode" "${install_dir}/scripts/detect-network.sh")"
 ip_mode="$selected_ip_mode"
 detect_public_addresses
