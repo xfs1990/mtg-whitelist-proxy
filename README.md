@@ -24,30 +24,26 @@ ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 
 | 场景 | 推荐方式 |
 | --- | --- |
-| 已经安装 Docker 的正常 VPS | `docker run` |
+| 已经安装 Docker 的正常 VPS | `run-docker.sh` |
 | Debian / Ubuntu，想自动安装 Docker | `install.sh` |
 | 256M 内存 / 1G 磁盘 / NAT 小鸡 | `install-tiny.sh` |
 | Alpine 极简系统，没有 curl/bash | `bootstrap-tiny.sh` |
 
-## Docker 一行启动
+## Docker 一行启动并返回地址
 
 适合已经有 Docker 的 VPS。
 
-最短命令：
+推荐命令：
 
 ```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | bash
 ```
 
-启动后查看白名单地址：
-
-```bash
-docker logs mtg-whitelist-proxy --tail=80
-```
-
-会看到类似：
+它不会安装 Docker，只会启动容器并直接返回白名单地址：
 
 ```text
+MTG Docker 版已启动。
+代理端口：随机PORT
 IPv4-URL: http://IPv4:随机ADD_PORT/add/随机token
 IPv6-URL: http://[IPv6]:随机ADD_PORT/add/随机token
 ```
@@ -59,6 +55,18 @@ IPv6-URL: http://[IPv6]:随机ADD_PORT/add/随机token
 - 可复制的 `tg://proxy?...`
 - 可复制的 `https://t.me/proxy?...`
 
+如果你只想手动执行原始 Docker 命令：
+
+```bash
+docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+```
+
+原始 `docker run -d` 只会返回容器 ID，这是 Docker 的标准行为。要看地址需要：
+
+```bash
+docker logs mtg-whitelist-proxy --tail=80
+```
+
 ## Docker 固定参数启动
 
 如果你想固定密码、端口或 IPv4/IPv6 模式，可以只加需要的 `-e`。
@@ -66,19 +74,25 @@ IPv6-URL: http://[IPv6]:随机ADD_PORT/add/随机token
 固定密码和端口：
 
 ```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e ADD_TOKEN='Pass' -e PORT=18188 -e ADD_PORT=8080 ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | ADD_TOKEN='Pass' PORT=18188 ADD_PORT=8080 bash
 ```
 
 强制 IPv6 出站：
 
 ```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e IP_MODE=only-ipv6 ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | IP_MODE=only-ipv6 bash
 ```
 
 固定伪装域名：
 
 ```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e DOMAIN='cloudflare.com' ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | DOMAIN='cloudflare.com' bash
+```
+
+如果容器已经存在，并且你想用新参数重建：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | RECREATE=1 ADD_TOKEN='Pass' PORT=18188 ADD_PORT=8080 bash
 ```
 
 ## Docker 自动生成规则
@@ -368,9 +382,8 @@ nft list table inet mtproxy_guard
 Docker：
 
 ```bash
-docker rm -f mtg-whitelist-proxy
 docker pull ghcr.io/xfs1990/mtg-whitelist-proxy:latest
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | RECREATE=1 bash
 ```
 
 tiny：
