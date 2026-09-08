@@ -131,6 +131,43 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 
 Review `install.sh` before piping it to a privileged shell on production systems.
 
+### Tiny Native Install
+
+For very small VPS instances where Docker is too heavy, use the native tiny
+installer. It installs only small system packages, downloads the MTG binary, and
+runs MTG plus the whitelist service with systemd:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | bash
+```
+
+For NAT VPS panels, keep fixed ports and forward both of them:
+
+```text
+PUBLIC_IP:18188 -> PRIVATE_IP:18188
+PUBLIC_IP:8080  -> PRIVATE_IP:8080
+```
+
+If the NAT public IP is not detected correctly, pass it explicitly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh \
+  | sudo env PUBLIC_IPV4=193.122.117.100 PORT=18188 ADD_PORT=8080 bash
+```
+
+The installer prints:
+
+```text
+IPv4-URL: http://PUBLIC_IP:8080/add/random-token
+IPv6-URL: http://[PUBLIC_IPV6]:8080/add/random-token
+```
+
+Tiny logs:
+
+```bash
+journalctl -u mtg-whitelist-proxy -u mtg-whitelist-server -f
+```
+
 ### Compose
 
 Copy the repository files to the VPS, then:
