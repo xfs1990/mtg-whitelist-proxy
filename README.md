@@ -88,45 +88,41 @@ wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/boo
 
 ### NAT 小鸡
 
-如果服务商只给一段公网端口，比如：
+如果服务商只给一段公网端口，比如 `10380 - 10399`，就从里面挑两个端口：
 
 ```text
-10380 - 10399
-```
-
-建议固定：
-
-```text
-10380 = MTG 代理端口
-10381 = 白名单页面端口
+PROXY_PORT = MTG 代理端口
+ADD_PORT   = 白名单页面端口
 ```
 
 面板端口转发：
 
 ```text
-公网IP:10380 -> 内网IP:10380
-公网IP:10381 -> 内网IP:10381
+YOUR_PUBLIC_IP:PROXY_PORT -> YOUR_PRIVATE_IP:PROXY_PORT
+YOUR_PUBLIC_IP:ADD_PORT   -> YOUR_PRIVATE_IP:ADD_PORT
 ```
 
-安装：
+安装时显式传公网 IP 和端口：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | PUBLIC_IPV4=193.122.117.100 PORT=10380 ADD_PORT=10381 bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | PUBLIC_IPV4=YOUR_PUBLIC_IP PORT=PROXY_PORT ADD_PORT=ADD_PORT bash
 ```
 
 Alpine 极简系统：
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | PUBLIC_IPV4=193.122.117.100 PORT=10380 ADD_PORT=10381 sh
+wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/bootstrap-tiny.sh | PUBLIC_IPV4=YOUR_PUBLIC_IP PORT=PROXY_PORT ADD_PORT=ADD_PORT sh
 ```
 
-返回：
+输出会类似：
 
 ```text
-IPv4-URL: http://193.122.117.100:10381/add/随机密码
+IPv4-URL: http://YOUR_PUBLIC_IP:ADD_PORT/add/随机密码
 ```
 
-手机打开这个地址，页面里的 Telegram 代理端口会是 `10380`。
+手机打开这个地址，页面里的 Telegram 代理端口会是 `PROXY_PORT`。
+
+把 `YOUR_PUBLIC_IP`、`YOUR_PRIVATE_IP`、`PROXY_PORT`、`ADD_PORT` 换成你自己面板分配的值。
 
 查看 tiny 状态：
 
