@@ -274,6 +274,8 @@ start_services() {
 print_urls() {
   echo
   echo "MTG tiny 版安装完成。"
+  echo "代理端口：${port}"
+  echo "出站模式：${ip_mode}"
   if [ -n "$public_ipv4" ]; then
     echo "IPv4-URL: http://${public_ipv4}:${add_port}/add/${add_token}"
   fi

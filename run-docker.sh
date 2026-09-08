@@ -11,7 +11,7 @@ public_ipv6="${PUBLIC_IPV6:-}"
 
 require_docker() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "未找到 Docker。请先安装 Docker，或使用 install.sh 自动安装。" >&2
+    echo "未找到 Docker。Docker 版需要先安装 Docker；低配机器可以改用 tiny 版 install-tiny.sh。" >&2
     exit 1
   fi
 }
