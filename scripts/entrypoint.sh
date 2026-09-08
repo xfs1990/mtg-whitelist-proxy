@@ -17,6 +17,8 @@ SECRET="${SECRET:-}"
 ADD_TOKEN="${ADD_TOKEN:-}"
 IPV4_SUBNET="${IPV4_SUBNET:-32}"
 IPV6_SUBNET="${IPV6_SUBNET:-64}"
+PUBLIC_IPV4="${PUBLIC_IPV4:-}"
+PUBLIC_IPV6="${PUBLIC_IPV6:-}"
 
 validate_number() {
   local name="$1"
@@ -41,14 +43,16 @@ if [ "$PORT" = "$ADD_PORT" ]; then
 fi
 
 if [ -z "$SECRET" ]; then
-  echo "SECRET is required. Generate one with: docker run --rm nineseconds/mtg:2 generate-secret $DOMAIN" >&2
-  exit 2
+  SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
+  echo "Generated MTG secret for domain: $DOMAIN"
 fi
+export SECRET
 
 if [ "$WHITELIST_MODE" != "OFF" ] && [ -z "$ADD_TOKEN" ]; then
-  echo "ADD_TOKEN is required unless WHITELIST_MODE=OFF." >&2
-  exit 2
+  ADD_TOKEN="$(LC_ALL=C od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Generated whitelist token."
 fi
+export ADD_TOKEN
 
 if [[ "$ADD_TOKEN" == */* ]]; then
   echo "ADD_TOKEN must not contain '/'." >&2
@@ -73,6 +77,37 @@ selected_ip_mode="$(IP_MODE="$IP_MODE" /usr/local/bin/detect-network.sh)"
 echo "Selected MTG IP mode: $selected_ip_mode"
 
 /usr/local/bin/firewall.sh reset
+
+detect_public_addresses() {
+  if [ -z "$PUBLIC_IPV4" ]; then
+    PUBLIC_IPV4="$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+  fi
+  if [ -z "$PUBLIC_IPV6" ]; then
+    PUBLIC_IPV6="$(ip -o -6 addr show scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+  fi
+  export PUBLIC_IPV4 PUBLIC_IPV6
+}
+
+print_add_urls() {
+  detect_public_addresses
+
+  echo
+  echo "Whitelist add URLs:"
+  if [ -n "$PUBLIC_IPV4" ]; then
+    echo "IPv4-URL: http://${PUBLIC_IPV4}:${ADD_PORT}/add/${ADD_TOKEN}"
+  fi
+  if [ -n "$PUBLIC_IPV6" ]; then
+    echo "IPv6-URL: http://[${PUBLIC_IPV6}]:${ADD_PORT}/add/${ADD_TOKEN}"
+  fi
+  echo "Open one add URL from your phone, then tap the Telegram link on the page."
+  echo
+}
+
+if [ "$WHITELIST_MODE" != "OFF" ]; then
+  print_add_urls
+else
+  detect_public_addresses
+fi
 
 server_pid=""
 mtg_pid=""

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import ipaddress
 import hmac
+import html
 import json
 import os
 import socket
@@ -18,6 +19,8 @@ ADD_TOKEN = os.getenv("ADD_TOKEN", "")
 PORT = int(os.getenv("PORT", "18188"))
 SECRET = os.getenv("SECRET", "")
 PUBLIC_HOST = os.getenv("PUBLIC_HOST", "").strip()
+PUBLIC_IPV4 = os.getenv("PUBLIC_IPV4", "").strip()
+PUBLIC_IPV6 = os.getenv("PUBLIC_IPV6", "").strip()
 WHITELIST_MODE = os.getenv("WHITELIST_MODE", "SUBNET").upper()
 IPV4_SUBNET = int(os.getenv("IPV4_SUBNET", "32"))
 IPV6_SUBNET = int(os.getenv("IPV6_SUBNET", "64"))
@@ -95,6 +98,226 @@ def proxy_host(host_header):
     return host_header.split(":", 1)[0] if host_header else "<server>"
 
 
+def add_url(host, token):
+    display_host = f"[{host}]" if ":" in host else host
+    return f"http://{display_host}:{ADD_PORT}/add/{token}"
+
+
+def render_add_page(ip, network, host, proxy_query):
+    display_host = f"[{host}]" if ":" in host else host
+    proxy_url = f"{display_host}:{PORT}"
+    tg_url = f"tg://proxy?{proxy_query}"
+    web_url = f"https://t.me/proxy?{proxy_query}"
+    current_add_url = add_url(host, ADD_TOKEN)
+    ipv4_add_url = add_url(PUBLIC_IPV4, ADD_TOKEN) if PUBLIC_IPV4 else ""
+    ipv6_add_url = add_url(PUBLIC_IPV6, ADD_TOKEN) if PUBLIC_IPV6 else ""
+
+    values = {
+        "ip": html.escape(str(ip)),
+        "network": html.escape(str(network)),
+        "mode": html.escape(WHITELIST_MODE),
+        "proxy_url": html.escape(proxy_url),
+        "tg_url": html.escape(tg_url, quote=True),
+        "tg_text": html.escape(tg_url),
+        "web_url": html.escape(web_url, quote=True),
+        "web_text": html.escape(web_url),
+        "add_url": html.escape(current_add_url, quote=True),
+        "add_text": html.escape(current_add_url),
+        "ipv4_add_url": html.escape(ipv4_add_url, quote=True),
+        "ipv4_add_text": html.escape(ipv4_add_url),
+        "ipv6_add_url": html.escape(ipv6_add_url, quote=True),
+        "ipv6_add_text": html.escape(ipv6_add_url),
+    }
+
+    add_links = []
+    if ipv4_add_url:
+        add_links.append(
+            f"""<div class="linkbox">
+        <span class="label">IPv4-URL</span>
+        <a href="{values["ipv4_add_url"]}">{values["ipv4_add_text"]}</a>
+      </div>"""
+        )
+    if ipv6_add_url:
+        add_links.append(
+            f"""<div class="linkbox">
+        <span class="label">IPv6-URL</span>
+        <a href="{values["ipv6_add_url"]}">{values["ipv6_add_text"]}</a>
+      </div>"""
+        )
+    add_links_html = "\n\n      ".join(add_links)
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MTG Proxy Ready</title>
+  <style>
+    :root {{
+      color-scheme: light dark;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #14171f;
+      --muted: #626a78;
+      --line: #dfe3ea;
+      --accent: #0877ff;
+      --accent-text: #ffffff;
+      --ok: #0f8f5f;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    @media (prefers-color-scheme: dark) {{
+      :root {{
+        --bg: #111318;
+        --panel: #191c23;
+        --text: #f0f3f7;
+        --muted: #a4abba;
+        --line: #313743;
+        --accent: #4c9dff;
+        --accent-text: #07111f;
+      }}
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }}
+    main {{
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }}
+    h1 {{
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }}
+    .status {{
+      margin: 0 0 18px;
+      color: var(--ok);
+      font-weight: 650;
+    }}
+    .grid {{
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 20px;
+    }}
+    @media (min-width: 680px) {{
+      .grid {{ grid-template-columns: repeat(3, 1fr); }}
+    }}
+    .metric {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 0;
+    }}
+    .label {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }}
+    .value {{
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      font-weight: 650;
+    }}
+    .actions {{
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }}
+    @media (min-width: 520px) {{
+      .actions {{ grid-template-columns: repeat(2, 1fr); }}
+    }}
+    a.button {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-text);
+      text-decoration: none;
+      font-weight: 700;
+      text-align: center;
+    }}
+    a.secondary {{
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }}
+    .linkbox {{
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }}
+    .linkbox a {{
+      color: var(--accent);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <h1>MTG Proxy Ready</h1>
+      <p class="status">Whitelist updated.</p>
+
+      <div class="grid">
+        <div class="metric">
+          <span class="label">Detected IP</span>
+          <span class="value">{values["ip"]}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Allowed</span>
+          <span class="value">{values["network"]}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Proxy</span>
+          <span class="value">{values["proxy_url"]}</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="button" href="{values["tg_url"]}">Open In Telegram</a>
+        <a class="button secondary" href="{values["web_url"]}">Open t.me Link</a>
+      </div>
+
+      <div class="linkbox">
+        <span class="label">Telegram URL</span>
+        <a href="{values["tg_url"]}">{values["tg_text"]}</a>
+      </div>
+
+      <div class="linkbox">
+        <span class="label">Web URL</span>
+        <a href="{values["web_url"]}">{values["web_text"]}</a>
+      </div>
+
+      {add_links_html}
+
+      <div class="linkbox">
+        <span class="label">Current Add URL</span>
+        <a href="{values["add_url"]}">{values["add_text"]}</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+
 def persist_and_apply(ip, network):
     now = datetime.now(timezone.utc).isoformat()
     with lock:
@@ -142,6 +365,16 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body_bytes)
 
+    def send_html(self, status, body):
+        body_bytes = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body_bytes)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body_bytes)
+
     def log_request(self, code="-", size="-"):
         path = urlparse(self.path).path
         if path.startswith("/add/"):
@@ -176,24 +409,13 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         host = proxy_host(self.headers.get("Host", ""))
-        display_host = f"[{host}]" if ":" in host else host
         proxy_query = urlencode(
             {"server": host, "port": str(PORT), "secret": SECRET}
         )
 
-        self.send_text(
+        self.send_html(
             200,
-            "\n".join(
-                [
-                    f"Detected: {ip}",
-                    f"Allowed: {network}",
-                    f"Mode: {WHITELIST_MODE}",
-                    f"Proxy: {display_host}:{PORT}",
-                    f"Telegram: tg://proxy?{proxy_query}",
-                    f"Web: https://t.me/proxy?{proxy_query}",
-                    "",
-                ]
-            ),
+            render_add_page(ip, network, host, proxy_query),
         )
 
 

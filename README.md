@@ -16,11 +16,9 @@ It only manages its own nftables table, `inet mtproxy_guard`. It never flushes t
 ## Requirements
 
 - Linux host with nftables
+- Docker
 - host network mode
 - `NET_ADMIN` capability
-
-The one-command installer can install Docker Engine automatically on Debian and
-Ubuntu. Other distributions need Docker installed first.
 
 The container modifies the host network namespace, so review the ports before running it on a shared machine.
 
@@ -32,20 +30,17 @@ Copy the example file and edit it:
 cp .env.example .env
 ```
 
-Generate a secret:
-
-```bash
-docker run --rm nineseconds/mtg:2.2.8 generate-secret cloudflare.com
-```
-
-Set at least:
+Set:
 
 ```env
-SECRET=...
 ADD_TOKEN=...
 DOMAIN=cloudflare.com
+# Optional. If SECRET is empty, the container generates one on startup.
+SECRET=
 # Optional: force the public domain or IP in generated Telegram links.
 PUBLIC_HOST=
+PUBLIC_IPV4=
+PUBLIC_IPV6=
 ```
 
 Available options:
@@ -57,6 +52,8 @@ ADD_PORT=8080
 SECRET=
 DOMAIN=cloudflare.com
 PUBLIC_HOST=
+PUBLIC_IPV4=
+PUBLIC_IPV6=
 
 IP_MODE=auto
 # auto, prefer-ipv4, prefer-ipv6, only-ipv4, only-ipv6
@@ -81,7 +78,34 @@ For mobile networks, `SUBNET` is usually more practical because IPv6 privacy add
 
 ## Start
 
-### One-command VPS install
+### One-line Docker Start
+
+On a VPS that already has Docker:
+
+```bash
+docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data -e ADD_TOKEN='change-this-password' -e DOMAIN='cloudflare.com' -e PORT=18188 -e ADD_PORT=8080 -e IP_MODE=auto -e WHITELIST_MODE=SUBNET ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+```
+
+The container generates `SECRET` automatically when it is not provided. If
+`ADD_TOKEN` is empty, it also generates a token and prints the add URLs in logs.
+
+Show the add URLs:
+
+```bash
+docker logs mtg-whitelist-proxy --tail=80
+```
+
+The logs include the reachable addresses detected on the VPS:
+
+```text
+IPv4-URL: http://IPv4:8080/add/password
+IPv6-URL: http://[IPv6]:8080/add/password
+```
+
+Open one URL from your phone. The page updates the whitelist and shows clickable
+Telegram links.
+
+### Optional Installer
 
 On a Debian or Ubuntu VPS:
 
