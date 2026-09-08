@@ -76,7 +76,12 @@ restore() {
     return 0
   fi
 
-  python3 - "$data_file" <<'PY' | while IFS= read -r network; do
+  while IFS= read -r network; do
+    [ -n "$network" ] || continue
+    if ! add_network "$network"; then
+      echo "跳过无法恢复的白名单条目：$network" >&2
+    fi
+  done < <(python3 - "$data_file" <<'PY'
 import json
 import sys
 
@@ -92,8 +97,7 @@ for item in data.get("entries", []):
     if network:
         print(network)
 PY
-    add_network "$network"
-  done
+)
 }
 
 case "${1:-}" in
