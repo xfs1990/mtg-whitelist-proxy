@@ -18,44 +18,76 @@
 适合正常 VPS。机器上需要已经安装 Docker。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | bash
+docker run -d \
+  --name mtg-whitelist-proxy \
+  --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  -v /opt/mtg-whitelist-proxy/data:/data \
+  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 ```
 
-脚本会启动 Docker 容器，并直接返回：
+Docker 会返回容器 ID。查看白名单地址：
+
+```bash
+docker logs mtg-whitelist-proxy --tail=100
+```
+
+日志里会显示：
 
 ```text
-MTG Docker 版已启动。
-代理端口：xxxxx
 IPv4-URL: http://IPv4:端口/add/密码
 IPv6-URL: http://[IPv6]:端口/add/密码
 ```
 
 然后用手机打开 `IPv4-URL` 或 `IPv6-URL`。
 
+想一行启动并直接打印地址，也可以用辅助脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | bash
+```
+
 ### Docker 固定参数
 
 默认会自动生成密码和端口。你也可以自己指定：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | ADD_TOKEN='Pass' PORT=18188 ADD_PORT=8080 bash
+docker run -d \
+  --name mtg-whitelist-proxy \
+  --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  -v /opt/mtg-whitelist-proxy/data:/data \
+  -e ADD_TOKEN='your-password' \
+  -e PORT=18188 \
+  -e ADD_PORT=8080 \
+  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 ```
 
 强制 IPv6 出站：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | IP_MODE=only-ipv6 bash
+docker run -d \
+  --name mtg-whitelist-proxy \
+  --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  -v /opt/mtg-whitelist-proxy/data:/data \
+  -e IP_MODE=only-ipv6 \
+  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 ```
 
-重建已有容器：
+已有容器需要换参数时，先删旧容器再重新 `docker run`：
+
+```bash
+docker rm -f mtg-whitelist-proxy
+```
+
+如果使用辅助脚本，可以这样重建：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | RECREATE=1 bash
-```
-
-原始 Docker 命令也可以用，但它只会返回容器 ID：
-
-```bash
-docker run -d --name mtg-whitelist-proxy --restart unless-stopped --network host --cap-add NET_ADMIN -v /opt/mtg-whitelist-proxy/data:/data ghcr.io/xfs1990/mtg-whitelist-proxy:latest
 ```
 
 查看 Docker 版状态：
@@ -88,7 +120,7 @@ wget -qO- https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/boo
 
 ### NAT 小鸡
 
-如果服务商只给一段公网端口，比如 `10380 - 10399`，就从里面挑两个端口：
+如果服务商只给一段公网端口，就从里面挑两个端口：
 
 ```text
 PROXY_PORT = MTG 代理端口
