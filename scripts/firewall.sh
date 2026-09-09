@@ -31,8 +31,8 @@ init_table() {
   require_nft
   nft delete table inet "$table_name" >/dev/null 2>&1 || true
   nft add table inet "$table_name"
-  nft "add set inet $table_name allowed_v4 { type ipv4_addr; flags interval; }"
-  nft "add set inet $table_name allowed_v6 { type ipv6_addr; flags interval; }"
+  nft "add set inet $table_name allowed_v4 { type ipv4_addr; flags interval; auto-merge; }"
+  nft "add set inet $table_name allowed_v6 { type ipv6_addr; flags interval; auto-merge; }"
   nft "add chain inet $table_name $chain_name { type filter hook input priority -90; policy accept; }"
   nft "add rule inet $table_name $chain_name tcp dport $add_port accept"
 
@@ -52,7 +52,7 @@ import ipaddress
 import sys
 
 try:
-    print(ipaddress.ip_network(sys.argv[1], strict=True))
+    print(ipaddress.ip_network(sys.argv[1], strict=False))
 except ValueError as exc:
     print(f"Invalid network: {exc}", file=sys.stderr)
     sys.exit(2)
@@ -69,6 +69,7 @@ PY
   else
     nft "add element inet $table_name allowed_v4 { $network }" >/dev/null 2>&1 || true
   fi
+  return 0
 }
 
 restore() {

@@ -347,7 +347,17 @@ def persist_and_apply(ip, network):
         save_data(data)
 
     if WHITELIST_MODE != "OFF":
-        subprocess.run([FIREWALL_SCRIPT, "add", str(network)], check=True)
+        result = subprocess.run(
+            [FIREWALL_SCRIPT, "add", str(network)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            if not detail:
+                detail = f"exit status {result.returncode}"
+            raise RuntimeError(f"防火墙更新失败：{detail}")
 
 
 class Handler(BaseHTTPRequestHandler):
