@@ -336,7 +336,8 @@ start_services() {
   case "$init_system" in
     systemd)
       systemctl daemon-reload
-      systemctl enable --now mtg-whitelist-server.service
+      systemctl enable mtg-whitelist-server.service >/dev/null
+      systemctl restart mtg-whitelist-server.service
       systemctl restart mtg-whitelist-proxy.service
       systemctl enable mtg-whitelist-proxy.service >/dev/null
       ;;
