@@ -27,6 +27,7 @@ mtg_doh_ip="${MTG_DOH_IP:-}"
 force_ipv4="${FORCE_IPV4:-0}"
 force_ipv6="${FORCE_IPV6:-0}"
 apt_lock_timeout="${APT_LOCK_TIMEOUT:-120}"
+cache_bust="${CACHE_BUST:-$(date +%s)}"
 init_system=""
 
 apt_cmd() {
@@ -86,6 +87,17 @@ curl_cmd() {
   else
     curl "$@"
   fi
+}
+
+raw_url() {
+  local path="$1"
+  local sep="?"
+
+  if [[ "$repo_raw" == *\?* ]]; then
+    sep="&"
+  fi
+
+  printf '%s/%s%s_cb=%s\n' "$repo_raw" "$path" "$sep" "$cache_bust"
 }
 
 random_hex() {
@@ -535,10 +547,11 @@ if [ -z "${mtg_path:-}" ]; then
   install -m 0755 "$mtg_path" "${install_dir}/bin/mtg"
 fi
 
-curl_cmd -fsSL "${repo_raw}/app/server.py" -o "${install_dir}/app/server.py"
-curl_cmd -fsSL "${repo_raw}/scripts/firewall.sh" -o "${install_dir}/scripts/firewall.sh"
-curl_cmd -fsSL "${repo_raw}/scripts/detect-network.sh" -o "${install_dir}/scripts/detect-network.sh"
+curl_cmd -fsSL "$(raw_url app/server.py)" -o "${install_dir}/app/server.py"
+curl_cmd -fsSL "$(raw_url scripts/firewall.sh)" -o "${install_dir}/scripts/firewall.sh"
+curl_cmd -fsSL "$(raw_url scripts/detect-network.sh)" -o "${install_dir}/scripts/detect-network.sh"
 chmod +x "${install_dir}/scripts/firewall.sh" "${install_dir}/scripts/detect-network.sh"
+echo "已刷新 tiny 服务文件。"
 
 if [ -z "$secret" ]; then
   if [ "$secret_mode" = "tls" ]; then
