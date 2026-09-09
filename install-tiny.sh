@@ -21,6 +21,7 @@ secret="${SECRET:-}"
 public_host="${PUBLIC_HOST:-}"
 public_ipv4="${PUBLIC_IPV4:-}"
 public_ipv6="${PUBLIC_IPV6:-}"
+mtg_doh_ip="${MTG_DOH_IP:-}"
 force_ipv4="${FORCE_IPV4:-0}"
 force_ipv6="${FORCE_IPV6:-0}"
 apt_lock_timeout="${APT_LOCK_TIMEOUT:-120}"
@@ -196,6 +197,7 @@ LOG_LEVEL=info
 WHITELIST_FILE=${install_dir}/data/whitelist.json
 FIREWALL_SCRIPT=${install_dir}/scripts/firewall.sh
 DATA_DIR=${install_dir}/data
+MTG_DOH_IP=${mtg_doh_ip}
 EOF
 }
 
@@ -215,7 +217,7 @@ set -euo pipefail
 set -a
 . "${install_dir}/mtg-whitelist.env"
 set +a
-exec "${install_dir}/bin/mtg" simple-run --prefer-ip "\${IP_MODE}" "[::]:\${PORT}" "\${SECRET}"
+exec "${install_dir}/bin/mtg" simple-run --prefer-ip "\${IP_MODE}" --doh-ip "\${MTG_DOH_IP}" "[::]:\${PORT}" "\${SECRET}"
 EOF
 
   chmod +x "${install_dir}/run-server.sh" "${install_dir}/run-proxy.sh"
@@ -342,11 +344,47 @@ start_services() {
   esac
 }
 
+select_doh_ip() {
+  local candidates
+  local candidate
+  local url
+
+  if [ -n "$mtg_doh_ip" ]; then
+    return
+  fi
+
+  case "$ip_mode" in
+    only-ipv6|prefer-ipv6)
+      candidates="2606:4700:4700::1111 2001:4860:4860::8888 1.1.1.1 8.8.8.8"
+      ;;
+    *)
+      candidates="1.1.1.1 8.8.8.8 2606:4700:4700::1111 2001:4860:4860::8888"
+      ;;
+  esac
+
+  for candidate in $candidates; do
+    if [[ "$candidate" == *:* ]]; then
+      url="https://[${candidate}]/dns-query"
+    else
+      url="https://${candidate}/dns-query"
+    fi
+
+    if curl_cmd -sS -o /dev/null --connect-timeout 3 --max-time 5 "$url" >/dev/null 2>&1; then
+      mtg_doh_ip="$candidate"
+      return
+    fi
+  done
+
+  echo "无法提前确认可用 DoH，继续使用 MTG 默认值 1.1.1.1。" >&2
+  mtg_doh_ip="1.1.1.1"
+}
+
 print_urls() {
   echo
   echo "MTG tiny 版安装完成。"
   echo "代理端口：${port}"
   echo "出站模式：${ip_mode}"
+  echo "DoH 解析地址：${mtg_doh_ip}"
   if [ -n "$public_ipv4" ]; then
     echo "IPv4-URL: http://${public_ipv4}:${add_port}/add/${add_token}"
   fi
@@ -458,6 +496,7 @@ if [ -z "$secret" ]; then
 fi
 selected_ip_mode="$(IP_MODE="$ip_mode" "${install_dir}/scripts/detect-network.sh")"
 ip_mode="$selected_ip_mode"
+select_doh_ip
 detect_public_addresses
 
 touch "${install_dir}/data/whitelist.json"

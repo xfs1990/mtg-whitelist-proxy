@@ -28,7 +28,7 @@ env_args() {
   for name in \
     ADD_TOKEN SECRET DOMAIN PORT ADD_PORT IP_MODE WHITELIST_MODE \
     IPV4_SUBNET IPV6_SUBNET PUBLIC_HOST PUBLIC_IPV4 PUBLIC_IPV6 \
-    LOG_LEVEL NFT_TABLE; do
+    LOG_LEVEL NFT_TABLE MTG_DOH_IP; do
     value="${!name:-}"
     if [ -n "$value" ]; then
       printf '%s\0%s\0' "-e" "${name}=${value}"

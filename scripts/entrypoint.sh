@@ -21,6 +21,7 @@ IPV4_SUBNET="${IPV4_SUBNET:-32}"
 IPV6_SUBNET="${IPV6_SUBNET:-64}"
 PUBLIC_IPV4="${PUBLIC_IPV4:-}"
 PUBLIC_IPV6="${PUBLIC_IPV6:-}"
+MTG_DOH_IP="${MTG_DOH_IP:-}"
 
 mkdir -p "$GENERATED_DIR"
 
@@ -158,6 +159,52 @@ fi
 selected_ip_mode="$(IP_MODE="$IP_MODE" /usr/local/bin/detect-network.sh)"
 echo "MTG 出站 IP 模式：$selected_ip_mode"
 
+doh_url() {
+  local host="$1"
+  if [[ "$host" == *:* ]]; then
+    printf 'https://[%s]/dns-query\n' "$host"
+  else
+    printf 'https://%s/dns-query\n' "$host"
+  fi
+}
+
+can_reach_doh() {
+  local host="$1"
+  curl -sS -o /dev/null --connect-timeout 3 --max-time 5 "$(doh_url "$host")" >/dev/null 2>&1
+}
+
+select_doh_ip() {
+  local candidates=()
+  local candidate
+
+  if [ -n "$MTG_DOH_IP" ]; then
+    printf '%s\n' "$MTG_DOH_IP"
+    return
+  fi
+
+  case "$selected_ip_mode" in
+    only-ipv6|prefer-ipv6)
+      candidates=(2606:4700:4700::1111 2001:4860:4860::8888 1.1.1.1 8.8.8.8)
+      ;;
+    *)
+      candidates=(1.1.1.1 8.8.8.8 2606:4700:4700::1111 2001:4860:4860::8888)
+      ;;
+  esac
+
+  for candidate in "${candidates[@]}"; do
+    if can_reach_doh "$candidate"; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  echo "无法提前确认可用 DoH，继续使用 MTG 默认值 1.1.1.1。" >&2
+  printf '%s\n' "1.1.1.1"
+}
+
+selected_doh_ip="$(select_doh_ip)"
+echo "MTG DoH 解析地址：$selected_doh_ip"
+
 /usr/local/bin/firewall.sh reset
 
 detect_public_addresses() {
@@ -217,9 +264,9 @@ trap 'exit 143' TERM
 python3 /app/server.py &
 server_pid="$!"
 
-mtg_args=(simple-run --prefer-ip "$selected_ip_mode" "[::]:${PORT}" "$SECRET")
+mtg_args=(simple-run --prefer-ip "$selected_ip_mode" --doh-ip "$selected_doh_ip" "[::]:${PORT}" "$SECRET")
 if [ "$LOG_LEVEL" = "debug" ]; then
-  mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode" "[::]:${PORT}" "$SECRET")
+  mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode" --doh-ip "$selected_doh_ip" "[::]:${PORT}" "$SECRET")
 fi
 
 mtg "${mtg_args[@]}" &
