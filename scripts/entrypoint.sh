@@ -10,6 +10,8 @@ GENERATED_DIR="${DATA_DIR}/generated"
 PORT="${PORT:-}"
 ADD_PORT="${ADD_PORT:-}"
 DOMAIN="${DOMAIN:-cloudflare.com}"
+SECRET_MODE="${SECRET_MODE:-tls}"
+SECRET_MODE="${SECRET_MODE,,}"
 IP_MODE="${IP_MODE:-auto}"
 IP_MODE="${IP_MODE,,}"
 WHITELIST_MODE="${WHITELIST_MODE:-SUBNET}"
@@ -116,15 +118,38 @@ fi
 
 export DATA_DIR PORT ADD_PORT DOMAIN IP_MODE WHITELIST_MODE IPV4_SUBNET IPV6_SUBNET
 
+case "$SECRET_MODE" in
+  tls|simple) ;;
+  *)
+    echo "Invalid SECRET_MODE: $SECRET_MODE" >&2
+    exit 2
+    ;;
+esac
+
 if [ -z "$SECRET" ]; then
-  SECRET="$(saved_value secret)"
+  if [ "$SECRET_MODE" = "tls" ]; then
+    SECRET="$(saved_value secret_tls)"
+    if [ -z "$SECRET" ]; then
+      SECRET="$(saved_value secret)"
+    fi
+  else
+    SECRET="$(saved_value secret_simple)"
+  fi
 fi
 if [ -z "$SECRET" ]; then
-  SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
-  echo "已为伪装域名生成 MTG 密钥：$DOMAIN"
+  if [ "$SECRET_MODE" = "tls" ]; then
+    SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
+    echo "已为伪装域名生成 MTG 密钥：$DOMAIN"
+  else
+    SECRET="$(random_hex 16)"
+    echo "已生成普通 MTG 密钥。"
+  fi
 fi
-save_value secret "$SECRET"
-export SECRET
+save_value "secret_${SECRET_MODE}" "$SECRET"
+if [ "$SECRET_MODE" = "tls" ]; then
+  save_value secret "$SECRET"
+fi
+export SECRET SECRET_MODE
 
 if [ "$WHITELIST_MODE" != "OFF" ] && [ -z "$ADD_TOKEN" ]; then
   ADD_TOKEN="$(saved_value add_token)"
@@ -158,6 +183,7 @@ fi
 
 selected_ip_mode="$(IP_MODE="$IP_MODE" /usr/local/bin/detect-network.sh)"
 echo "MTG 出站 IP 模式：$selected_ip_mode"
+echo "MTG secret 模式：$SECRET_MODE"
 
 doh_url() {
   local host="$1"
@@ -202,8 +228,13 @@ select_doh_ip() {
   printf '%s\n' "1.1.1.1"
 }
 
-selected_doh_ip="$(select_doh_ip)"
-echo "MTG DoH 解析地址：$selected_doh_ip"
+if [ "$SECRET_MODE" = "tls" ]; then
+  selected_doh_ip="$(select_doh_ip)"
+  echo "MTG DoH 解析地址：$selected_doh_ip"
+else
+  selected_doh_ip=""
+  echo "MTG DoH 解析地址：未使用"
+fi
 
 /usr/local/bin/firewall.sh reset
 
@@ -264,10 +295,14 @@ trap 'exit 143' TERM
 python3 /app/server.py &
 server_pid="$!"
 
-mtg_args=(simple-run --prefer-ip "$selected_ip_mode" --doh-ip "$selected_doh_ip" "[::]:${PORT}" "$SECRET")
+mtg_args=(simple-run --prefer-ip "$selected_ip_mode")
 if [ "$LOG_LEVEL" = "debug" ]; then
-  mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode" --doh-ip "$selected_doh_ip" "[::]:${PORT}" "$SECRET")
+  mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode")
 fi
+if [ "$SECRET_MODE" = "tls" ]; then
+  mtg_args+=(--doh-ip "$selected_doh_ip")
+fi
+mtg_args+=("[::]:${PORT}" "$SECRET")
 
 mtg "${mtg_args[@]}" &
 mtg_pid="$!"

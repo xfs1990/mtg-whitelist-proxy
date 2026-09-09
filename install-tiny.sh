@@ -10,6 +10,7 @@ mtg_url="${MTG_URL:-}"
 mtg_vendor_url="${MTG_VENDOR_URL:-}"
 mtg_file="${MTG_FILE:-}"
 domain="${DOMAIN:-}"
+secret_mode="${SECRET_MODE:-}"
 port="${PORT:-}"
 add_port="${ADD_PORT:-}"
 ip_mode="${IP_MODE:-}"
@@ -18,6 +19,7 @@ ipv4_subnet="${IPV4_SUBNET:-}"
 ipv6_subnet="${IPV6_SUBNET:-}"
 add_token="${ADD_TOKEN:-}"
 secret="${SECRET:-}"
+provided_secret="${SECRET:-}"
 public_host="${PUBLIC_HOST:-}"
 public_ipv4="${PUBLIC_IPV4:-}"
 public_ipv6="${PUBLIC_IPV6:-}"
@@ -184,6 +186,7 @@ write_env() {
 PORT=${port}
 ADD_PORT=${add_port}
 SECRET=${secret}
+SECRET_MODE=${secret_mode}
 DOMAIN=${domain}
 PUBLIC_HOST=${public_host}
 PUBLIC_IPV4=${public_ipv4}
@@ -217,7 +220,15 @@ set -euo pipefail
 set -a
 . "${install_dir}/mtg-whitelist.env"
 set +a
-exec "${install_dir}/bin/mtg" simple-run --prefer-ip "\${IP_MODE}" --doh-ip "\${MTG_DOH_IP}" "[::]:\${PORT}" "\${SECRET}"
+args=(simple-run --prefer-ip "\${IP_MODE}")
+if [ "\${LOG_LEVEL:-info}" = "debug" ]; then
+  args=(simple-run --debug --prefer-ip "\${IP_MODE}")
+fi
+if [ "\${SECRET_MODE:-tls}" = "tls" ]; then
+  args+=(--doh-ip "\${MTG_DOH_IP}")
+fi
+args+=("[::]:\${PORT}" "\${SECRET}")
+exec "${install_dir}/bin/mtg" "\${args[@]}"
 EOF
 
   chmod +x "${install_dir}/run-server.sh" "${install_dir}/run-proxy.sh"
@@ -349,6 +360,11 @@ select_doh_ip() {
   local candidate
   local url
 
+  if [ "$secret_mode" != "tls" ]; then
+    mtg_doh_ip=""
+    return
+  fi
+
   if [ -n "$mtg_doh_ip" ]; then
     return
   fi
@@ -384,7 +400,12 @@ print_urls() {
   echo "MTG tiny 版安装完成。"
   echo "代理端口：${port}"
   echo "出站模式：${ip_mode}"
-  echo "DoH 解析地址：${mtg_doh_ip}"
+  echo "secret 模式：${secret_mode}"
+  if [ "$secret_mode" = "tls" ]; then
+    echo "DoH 解析地址：${mtg_doh_ip}"
+  else
+    echo "DoH 解析地址：未使用"
+  fi
   if [ -n "$public_ipv4" ]; then
     echo "IPv4-URL: http://${public_ipv4}:${add_port}/add/${add_token}"
   fi
@@ -408,6 +429,8 @@ fi
 install_packages
 
 domain="$(init_value DOMAIN "$domain" cloudflare.com)"
+secret_mode="$(init_value SECRET_MODE "$secret_mode" tls)"
+secret_mode="${secret_mode,,}"
 port="$(init_value PORT "$port" "$(random_port 20000 20000)")"
 add_port="$(init_value ADD_PORT "$add_port" "$(random_port 10000 10000)")"
 ip_mode="${ip_mode:-auto}"
@@ -415,10 +438,27 @@ whitelist_mode="$(init_value WHITELIST_MODE "$whitelist_mode" SUBNET)"
 ipv4_subnet="$(init_value IPV4_SUBNET "$ipv4_subnet" 32)"
 ipv6_subnet="$(init_value IPV6_SUBNET "$ipv6_subnet" 64)"
 add_token="$(init_value ADD_TOKEN "$add_token" "$(random_hex 12)")"
-secret="$(init_value SECRET "$secret" "")"
 public_host="$(init_value PUBLIC_HOST "$public_host" "")"
 public_ipv4="$(init_value PUBLIC_IPV4 "$public_ipv4" "")"
 public_ipv6="$(init_value PUBLIC_IPV6 "$public_ipv6" "")"
+
+case "$secret_mode" in
+  tls|simple) ;;
+  *)
+    echo "SECRET_MODE 只能是 tls 或 simple。" >&2
+    exit 2
+    ;;
+esac
+
+existing_secret_mode="$(existing_value SECRET_MODE)"
+existing_secret="$(existing_value SECRET)"
+if [ -n "$provided_secret" ]; then
+  secret="$provided_secret"
+elif [ -n "$existing_secret" ] && { [ -z "$existing_secret_mode" ] || [ "$existing_secret_mode" = "$secret_mode" ]; }; then
+  secret="$existing_secret"
+else
+  secret=""
+fi
 
 validate_port PORT "$port"
 validate_port ADD_PORT "$add_port"
@@ -492,7 +532,11 @@ curl_cmd -fsSL "${repo_raw}/scripts/detect-network.sh" -o "${install_dir}/script
 chmod +x "${install_dir}/scripts/firewall.sh" "${install_dir}/scripts/detect-network.sh"
 
 if [ -z "$secret" ]; then
-  secret="$("${install_dir}/bin/mtg" generate-secret "$domain")"
+  if [ "$secret_mode" = "tls" ]; then
+    secret="$("${install_dir}/bin/mtg" generate-secret "$domain")"
+  else
+    secret="$(random_hex 16)"
+  fi
 fi
 selected_ip_mode="$(IP_MODE="$ip_mode" "${install_dir}/scripts/detect-network.sh")"
 ip_mode="$selected_ip_mode"
