@@ -377,11 +377,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body_bytes)
 
     def log_request(self, code="-", size="-"):
-        path = urlparse(self.path).path
+        path = urlparse(getattr(self, "path", "")).path or "-"
         if path.startswith("/add/"):
             path = "/add/<redacted>"
+        command = getattr(self, "command", "-")
         print(
-            f"{self.client_address[0]} - {self.command} {path} {code} {size}",
+            f"{self.client_address[0]} - {command} {path} {code} {size}",
             flush=True,
         )
 
