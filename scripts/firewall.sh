@@ -72,6 +72,16 @@ PY
   return 0
 }
 
+ensure_table() {
+  if nft list table inet "$table_name" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "nftables table inet $table_name 不存在，正在重新初始化。" >&2
+  init_table
+  restore
+}
+
 restore() {
   if [ ! -s "$data_file" ]; then
     return 0
@@ -107,6 +117,7 @@ case "${1:-}" in
     ;;
   add)
     [ -n "${2:-}" ] || { echo "Usage: firewall.sh add <network>" >&2; exit 2; }
+    ensure_table
     add_network "$2"
     ;;
   restore)
