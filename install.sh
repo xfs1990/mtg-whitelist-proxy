@@ -4,6 +4,8 @@ set -euo pipefail
 image="${IMAGE:-ghcr.io/xfs1990/mtg-whitelist-proxy:latest}"
 install_dir="${INSTALL_DIR:-/opt/mtg-whitelist-proxy}"
 domain="${DOMAIN:-cloudflare.com}"
+secret_mode="${SECRET_MODE:-tls}"
+secret_mode="${secret_mode,,}"
 public_host="${PUBLIC_HOST:-}"
 port="${PORT:-18188}"
 add_port="${ADD_PORT:-8080}"
@@ -172,6 +174,14 @@ if ! compose_cmd version >/dev/null 2>&1; then
   exit 1
 fi
 
+case "$secret_mode" in
+  tls|simple) ;;
+  *)
+    echo "SECRET_MODE must be tls or simple." >&2
+    exit 2
+    ;;
+esac
+
 mkdir -p "$install_dir/data"
 env_file="$install_dir/.env"
 compose_file="$install_dir/docker-compose.yml"
@@ -179,7 +189,11 @@ compose_file="$install_dir/docker-compose.yml"
 docker pull "$image"
 
 if [ ! -s "$env_file" ]; then
-  secret="$(docker run --rm --entrypoint /usr/local/bin/mtg "$image" generate-secret "$domain")"
+  if [ "$secret_mode" = "simple" ]; then
+    secret="$(docker run --rm --entrypoint /usr/local/bin/mtg-v1 "$image" generate-secret simple)"
+  else
+    secret="$(docker run --rm --entrypoint /usr/local/bin/mtg "$image" generate-secret "$domain")"
+  fi
   if command -v openssl >/dev/null 2>&1; then
     add_token="$(openssl rand -hex 24)"
   else
@@ -192,6 +206,7 @@ if [ ! -s "$env_file" ]; then
     printf 'PORT=%s\n' "$port"
     printf 'ADD_PORT=%s\n' "$add_port"
     printf 'SECRET=%s\n' "$secret"
+    printf 'SECRET_MODE=%s\n' "$secret_mode"
     printf 'DOMAIN=%s\n' "$domain"
     printf 'PUBLIC_HOST=%s\n' "$public_host"
     printf 'IP_MODE=%s\n' "$ip_mode"

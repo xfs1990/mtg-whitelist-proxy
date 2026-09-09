@@ -6,6 +6,7 @@ vendor_raw="${VENDOR_RAW:-https://raw.githubusercontent.com/xfs1990/mtg-whitelis
 install_dir="${INSTALL_DIR:-/opt/mtg-whitelist-proxy-tiny}"
 existing_env="${install_dir}/mtg-whitelist.env"
 mtg_version="${MTG_VERSION:-2.2.8}"
+mtg_v1_version="${MTG_V1_VERSION:-1.0.12}"
 mtg_url="${MTG_URL:-}"
 mtg_vendor_url="${MTG_VENDOR_URL:-}"
 mtg_file="${MTG_FILE:-}"
@@ -106,7 +107,7 @@ random_hex() {
 }
 
 is_simple_secret() {
-  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]]
+  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]] && [[ ! "$1" =~ ^[dD][dD] ]] && [[ ! "$1" =~ ^[eE][eE] ]]
 }
 
 existing_value() {
@@ -242,9 +243,21 @@ if [ "\${LOG_LEVEL:-info}" = "debug" ]; then
 fi
 if [ "\${SECRET_MODE:-tls}" = "tls" ]; then
   args+=(--doh-ip "\${MTG_DOH_IP}")
+  args+=("[::]:\${PORT}" "\${SECRET}")
+  exec "${install_dir}/bin/mtg" "\${args[@]}"
 fi
-args+=("[::]:\${PORT}" "\${SECRET}")
-exec "${install_dir}/bin/mtg" "\${args[@]}"
+
+case "\${IP_MODE}" in
+  *ipv6) prefer_direct_ip="ipv6" ;;
+  *) prefer_direct_ip="ipv4" ;;
+esac
+
+export MTG_BIND="[::]:\${PORT}"
+export MTG_PREFER_DIRECT_IP="\${prefer_direct_ip}"
+if [ "\${LOG_LEVEL:-info}" = "debug" ]; then
+  export MTG_DEBUG=1
+fi
+exec "${install_dir}/bin/mtg" run "\${SECRET}"
 EOF
 
   chmod +x "${install_dir}/run-server.sh" "${install_dir}/run-proxy.sh"
@@ -504,9 +517,14 @@ fi
 mkdir -p "${install_dir}/bin" "${install_dir}/app" "${install_dir}/scripts" "${install_dir}/data"
 
 arch="$(detect_arch)"
-mtg_archive="mtg-${mtg_version}-linux-${arch}.tar.gz"
+if [ "$secret_mode" = "simple" ]; then
+  mtg_download_version="$mtg_v1_version"
+else
+  mtg_download_version="$mtg_version"
+fi
+mtg_archive="mtg-${mtg_download_version}-linux-${arch}.tar.gz"
 if [ -z "$mtg_url" ]; then
-  mtg_url="https://github.com/9seconds/mtg/releases/download/v${mtg_version}/${mtg_archive}"
+  mtg_url="https://github.com/9seconds/mtg/releases/download/v${mtg_download_version}/${mtg_archive}"
 fi
 if [ -z "$mtg_vendor_url" ]; then
   mtg_vendor_url="${vendor_raw}/vendor/${mtg_archive}"
@@ -557,7 +575,7 @@ if [ -z "$secret" ]; then
   if [ "$secret_mode" = "tls" ]; then
     secret="$("${install_dir}/bin/mtg" generate-secret "$domain")"
   else
-    secret="$(random_hex 16)"
+    secret="$("${install_dir}/bin/mtg" generate-secret simple)"
   fi
 fi
 selected_ip_mode="$(IP_MODE="$ip_mode" "${install_dir}/scripts/detect-network.sh")"

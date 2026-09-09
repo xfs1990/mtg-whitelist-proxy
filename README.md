@@ -173,7 +173,7 @@ Docker 懒人脚本：
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | SECRET_MODE=simple RECREATE=1 bash
 ```
 
-`simple` 模式不会使用 `cloudflare.com` 和 DoH，只让 VPS 直接连接 Telegram。它适合作为特殊网络下的兜底方案；默认仍然推荐 `tls`。
+`simple` 模式会切到 MTG v1 direct 模式，不使用 `cloudflare.com` 和 DoH，只让 VPS 直接连接 Telegram。它适合作为特殊网络下的兜底方案；默认仍然推荐 `tls`。
 
 ## 常用参数
 
@@ -185,7 +185,7 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/ru
 | `ADD_PORT` | 自动生成 | 白名单页面端口 |
 | `ADD_TOKEN` | 自动生成 | `/add/<token>` 密码 |
 | `SECRET` | 自动生成 | MTG secret |
-| `SECRET_MODE` | `tls` | `tls` 使用伪装域名；`simple` 使用普通 secret |
+| `SECRET_MODE` | `tls` | `tls` 使用 MTG v2 伪装域名；`simple` 使用 MTG v1 direct 模式 |
 | `DOMAIN` | `cloudflare.com` | 生成 secret 的伪装域名 |
 | `MTG_DOH_IP` | 自动选择 | MTG 解析伪装域名时使用的 DoH IP |
 | `IP_MODE` | `auto` | 出站 IP 策略 |

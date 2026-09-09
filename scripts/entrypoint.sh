@@ -49,7 +49,14 @@ random_port() {
 }
 
 is_simple_secret() {
-  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]]
+  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]] && [[ ! "$1" =~ ^[dD][dD] ]] && [[ ! "$1" =~ ^[eE][eE] ]]
+}
+
+mtg_v1_prefer_ip() {
+  case "$1" in
+    *ipv6) printf 'ipv6\n' ;;
+    *) printf 'ipv4\n' ;;
+  esac
 }
 
 saved_value() {
@@ -149,7 +156,7 @@ if [ -z "$SECRET" ]; then
     SECRET="$(/usr/local/bin/mtg generate-secret "$DOMAIN")"
     echo "已为伪装域名生成 MTG 密钥：$DOMAIN"
   else
-    SECRET="$(random_hex 16)"
+    SECRET="$(/usr/local/bin/mtg-v1 generate-secret simple)"
     echo "已生成普通 MTG 密钥。"
   fi
 fi
@@ -303,16 +310,23 @@ trap 'exit 143' TERM
 python3 /app/server.py &
 server_pid="$!"
 
-mtg_args=(simple-run --prefer-ip "$selected_ip_mode")
-if [ "$LOG_LEVEL" = "debug" ]; then
-  mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode")
-fi
-if [ "$SECRET_MODE" = "tls" ]; then
+if [ "$SECRET_MODE" = "simple" ]; then
+  export MTG_BIND="[::]:${PORT}"
+  export MTG_PREFER_DIRECT_IP="$(mtg_v1_prefer_ip "$selected_ip_mode")"
+  if [ "$LOG_LEVEL" = "debug" ]; then
+    export MTG_DEBUG=1
+  fi
+  mtg-v1 run "$SECRET" &
+else
+  mtg_args=(simple-run --prefer-ip "$selected_ip_mode")
+  if [ "$LOG_LEVEL" = "debug" ]; then
+    mtg_args=(simple-run --debug --prefer-ip "$selected_ip_mode")
+  fi
   mtg_args+=(--doh-ip "$selected_doh_ip")
-fi
-mtg_args+=("[::]:${PORT}" "$SECRET")
+  mtg_args+=("[::]:${PORT}" "$SECRET")
 
-mtg "${mtg_args[@]}" &
+  mtg "${mtg_args[@]}" &
+fi
 mtg_pid="$!"
 
 set +e
