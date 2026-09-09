@@ -93,6 +93,10 @@ random_hex() {
   LC_ALL=C od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n'
 }
 
+is_simple_secret() {
+  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]]
+}
+
 existing_value() {
   local name="$1"
   if [ -f "$existing_env" ]; then
@@ -457,6 +461,10 @@ if [ -n "$provided_secret" ]; then
 elif [ -n "$existing_secret" ] && { [ -z "$existing_secret_mode" ] || [ "$existing_secret_mode" = "$secret_mode" ]; }; then
   secret="$existing_secret"
 else
+  secret=""
+fi
+if [ "$secret_mode" = "simple" ] && [ -n "$secret" ] && ! is_simple_secret "$secret"; then
+  echo "检测到已保存的 secret 不是普通模式格式，重新生成普通 MTG 密钥。" >&2
   secret=""
 fi
 

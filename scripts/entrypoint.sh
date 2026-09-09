@@ -48,6 +48,10 @@ random_port() {
   printf '%s\n' "$((minimum + 0x$(random_hex 2) % span))"
 }
 
+is_simple_secret() {
+  [[ "$1" =~ ^[0-9a-fA-F]{32}$ ]]
+}
+
 saved_value() {
   local name="$1"
   local file="${GENERATED_DIR}/${name}"
@@ -135,6 +139,10 @@ if [ -z "$SECRET" ]; then
   else
     SECRET="$(saved_value secret_simple)"
   fi
+fi
+if [ "$SECRET_MODE" = "simple" ] && [ -n "$SECRET" ] && ! is_simple_secret "$SECRET"; then
+  echo "检测到已保存的 secret 不是普通模式格式，重新生成普通 MTG 密钥。"
+  SECRET=""
 fi
 if [ -z "$SECRET" ]; then
   if [ "$SECRET_MODE" = "tls" ]; then
