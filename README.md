@@ -25,6 +25,28 @@
 
 只有 NAT 或端口受限机器需要手动指定端口。
 
+## 两种代理模式
+
+默认是伪装模式：
+
+```text
+SECRET_MODE=tls
+MTG v2 + FakeTLS
+使用 cloudflare.com 作为伪装域名
+```
+
+如果 VPS 到伪装域名、DoH、Cloudflare 链路不稳定，可以改用直连模式：
+
+```text
+SECRET_MODE=simple
+MTG v1 direct
+不使用 cloudflare.com
+不使用 DoH
+VPS 直接连接 Telegram
+```
+
+普通用户建议先用默认模式。遇到 `cannot dial to the fronting domain`、网页能打开但代理一直不通、或特殊 IPv6-only 网络时，再试直连模式。
+
 ## Docker 标准命令
 
 适合正常 VPS。机器上需要已经安装 Docker。
@@ -56,6 +78,20 @@ IPv6-URL: http://[IPv6]:端口/add/密码
 
 然后用手机打开其中一个地址。
 
+Docker 直连模式：
+
+```bash
+docker run -d \
+  --pull=always \
+  --name mtg-whitelist-proxy \
+  --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  -v /opt/mtg-whitelist-proxy/data:/data \
+  -e SECRET_MODE=simple \
+  ghcr.io/xfs1990/mtg-whitelist-proxy:latest
+```
+
 ## Docker 懒人脚本
 
 适合自己用：一行启动 Docker 容器，并直接打印白名单地址。
@@ -70,12 +106,24 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/ru
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | RECREATE=1 bash
 ```
 
+Docker 懒人脚本直连模式：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | SECRET_MODE=simple RECREATE=1 bash
+```
+
 ## tiny 版
 
 适合低配机器，不需要 Docker。IPv4-only、IPv6-only、双栈机器都会自动检测。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | bash
+```
+
+tiny 直连模式：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | SECRET_MODE=simple bash
 ```
 
 脚本会下载 MTG 单文件，并用 systemd 或 OpenRC 启动：
@@ -161,16 +209,10 @@ curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/in
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | MTG_DOH_IP=2001:4860:4860::8888 bash
 ```
 
-如果这台 VPS 到伪装域名或 DoH 链路一直不稳定，可以切到普通 secret 模式：
+如果这台 VPS 到伪装域名或 DoH 链路一直不稳定，可以切到前面提到的直连模式：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/install-tiny.sh | SECRET_MODE=simple bash
-```
-
-Docker 懒人脚本：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xfs1990/mtg-whitelist-proxy/main/run-docker.sh | SECRET_MODE=simple RECREATE=1 bash
 ```
 
 `simple` 模式会切到 MTG v1 direct 模式，不使用 `cloudflare.com` 和 DoH，只让 VPS 直接连接 Telegram。它适合作为特殊网络下的兜底方案；默认仍然推荐 `tls`。
